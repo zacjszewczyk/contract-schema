@@ -1,1 +1,6 @@
 .ipynb_checkpoints/
+.bash_history
+.jupyter/
+.local/
+.npm/
+__pycache__/
