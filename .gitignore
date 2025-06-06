@@ -4,3 +4,4 @@
 .local/
 .npm/
 __pycache__/
+.ipython/profile_default/history.sqlite
