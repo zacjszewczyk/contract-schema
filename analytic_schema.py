@@ -326,7 +326,7 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 
     # Auto‑generate one flag per top‑level schema property --------------------
     for prop_name, prop_spec in INPUT_SCHEMA["properties"].items():
-        cli_flag = f"--{prop_name.replace('_', '-')}")  # e.g. --input-schema-version
+        cli_flag = f"--{prop_name.replace('_', '-')}"  # e.g. --input-schema-version
         kwargs: Dict[str, Any] = {
             "dest": prop_name,
             "help": prop_spec.get("description", ""),
