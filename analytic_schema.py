@@ -286,44 +286,52 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     """
     Dynamically build an :class:`argparse.ArgumentParser` from ``INPUT_SCHEMA``.
 
-    The function is **cached** (``lru_cache``) because constructing the parser
-    is relatively expensive and we only ever need one instance per process.
+    UX improvements (v3.3)
+    ----------------------
+    * ``fromfile_prefix_chars='@'`` – supply huge parameter sets via *response
+      files* (e.g. ``@params.txt``).
+    * ``--version`` – quickly print the schema version embedded in the JSON
+      contract and exit.
     """
+
     parser = argparse.ArgumentParser(
         description=INPUT_SCHEMA.get(
             "description", "Analytics Notebook Input Parameters"
         ),
         add_help=False,  # we inject our own so it appears first
+        fromfile_prefix_chars="@",  # NEW: enable @response‑file syntax
     )
 
-    # Ensure help appears in *exactly* the same spot regardless of schema order
+    # Core generic flags ------------------------------------------------------
     parser.add_argument(
-        "-h",
-        "--help",
+        "-h", "--help",
         action="help",
         default=argparse.SUPPRESS,
         help="Show this help message and exit.",
     )
-
-    # Allow full JSON file via --config; handled later in validate_input
+    parser.add_argument(
+        "--version",
+        action="version",
+        version=f"{SCHEMA_PATH.name} : {INPUT_SCHEMA.get('version', 'unknown')}",
+        help="Print schema contract version and exit.",
+    )
     parser.add_argument(
         "--config",
+        metavar="FILE",
         help=(
             "Path to JSON file containing the full input object.  If supplied, "
-            "all other CLI fields are ignored (the file becomes authoritative)."
+            "all other CLI flags are ignored (the file becomes authoritative)."
         ),
     )
 
-    # Generate one CLI flag per top-level schema property
+    # Auto‑generate one flag per top‑level schema property --------------------
     for prop_name, prop_spec in INPUT_SCHEMA["properties"].items():
-        cli_flag = f"--{prop_name.replace('_', '-')}"  # e.g. --input-schema-version
+        cli_flag = f"--{prop_name.replace('_', '-')}")  # e.g. --input-schema-version
         kwargs: Dict[str, Any] = {
             "dest": prop_name,
             "help": prop_spec.get("description", ""),
-            "required": False,  # we handle required after merge/validation
+            "required": False,  # schema handles requiredness later
         }
-
-        # Map schema “type” → argparse option type / action
         stype = prop_spec.get("type")
         if stype == "boolean":
             kwargs["action"] = argparse.BooleanOptionalAction
@@ -331,11 +339,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
             kwargs["type"] = int
         elif stype == "number":
             kwargs["type"] = float
-
-        # Enum → choices list for nicer errors
         if "enum" in prop_spec:
             kwargs["choices"] = prop_spec["enum"]
-
         parser.add_argument(cli_flag, **kwargs)
 
     return parser
@@ -428,10 +433,10 @@ def parse_input(
     try:
         namespace, unknown = parser.parse_known_args(argv)
         if unknown:
-            print(
-                f"Warning: Unknown arguments ignored by parse_input: {unknown}",
-                file=sys.stderr,
+            raise ValueError(
+                f"Unknown argument(s): {unknown}.  Use --help for valid options."
             )
+
     except SystemExit as exc:
         # Re-raise so callers can handle (e.g. exit(2) in CLI _main)
         raise exc
