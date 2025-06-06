@@ -99,6 +99,7 @@ import shlex
 import getpass      # For _get_user
 import socket       # For _get_host
 from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
+import pandas as pd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # 1.  Schema definitions  (verbatim copy of the user-provided contract)
@@ -125,12 +126,15 @@ INPUT_SCHEMA: Dict[str, Any] = {
         },
         "data_source_type": {
             "type": "string",
-            "enum": ["file", "IONIC dataset", "api endpoint"],
+            "enum": ["file", "IONIC dataset", "api endpoint", "df"],
             "description": "Transport mechanism used to retrieve data for the run."
         },
         "data_source": {
-            "type": "string",
-            "description": "Path, identifier or URL that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs')."
+            "oneOf": [
+                { "type": "string" },
+                { "type": "dataframe"}
+            ],
+            "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs', df)."
         },
         "log_path": {
             "type": "string",
@@ -283,6 +287,7 @@ _TYPE_DISPATCH: Dict[str, Union[type, Tuple[type, ...]]] = {
     "object":  dict,
     "array":   list,
     "boolean": bool,
+    "dataframe": pd.core.frame.DataFrame
 }
 
 def _validate(data: Any, schema: Mapping[str, Any], path: str = "") -> None:
@@ -312,7 +317,6 @@ def _validate(data: Any, schema: Mapping[str, Any], path: str = "") -> None:
         if not matched_oneof:
             raise SchemaError(f"{path}: does not match any allowed schema in oneOf\n" + "\n".join(errors))
 
-
     if stype == "object":
         props = schema.get("properties", {})
         req   = set(schema.get("required", []))
@@ -331,7 +335,6 @@ def _validate(data: Any, schema: Mapping[str, Any], path: str = "") -> None:
                     _validate(v, props[k], f"{path}.{k}" if path else k)
         elif req: # if data is not a dict, but fields are required, it's an error
              raise SchemaError(f"{path}: expected an object with required fields {sorted(list(req))}, got {type(data).__name__}")
-
 
     elif stype == "array":
         items_schema = schema.get("items")
