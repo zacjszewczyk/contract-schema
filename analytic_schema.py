@@ -87,6 +87,7 @@ import socket           # Hostname lookup for OutputDoc meta-data
 import sys
 import uuid
 from typing import Any, Dict, List, Mapping, Sequence, Tuple, Union
+import copy
 
 # ─── Third-party (widely available) ───────────────────────────────────────────
 import pandas as pd
@@ -112,12 +113,14 @@ except json.JSONDecodeError as exc:
         f"Contract file {SCHEMA_PATH!s} is not valid JSON: {exc}"
     ) from exc
 
-INPUT_SCHEMA: Dict[str, Any] = _schema_file["input"]
-OUTPUT_SCHEMA: Dict[str, Any] = _schema_file["output"]
+# NOTE: deepcopy – ensures downstream mutation of one dict cannot corrupt the
+#       other (e.g. when we embed INPUT_SCHEMA inside OUTPUT_SCHEMA).
+INPUT_SCHEMA: Dict[str, Any] = copy.deepcopy(_schema_file["input"])
+OUTPUT_SCHEMA: Dict[str, Any] = copy.deepcopy(_schema_file["output"])
 
 # For convenience the *entire* INPUT_SCHEMA object is embedded by reference
 # inside OUTPUT_SCHEMA → properties → inputs so the validator can recurse.
-OUTPUT_SCHEMA["properties"]["inputs"] = INPUT_SCHEMA
+OUTPUT_SCHEMA["properties"]["inputs"] = copy.deepcopy(INPUT_SCHEMA)
 
 # =============================================================================
 # 2.  Tiny validation engine – implements *just enough* of JSON-Schema
@@ -163,10 +166,11 @@ _TYPE_DISPATCH: Dict[str, Union[type, Tuple[type, ...]]] = {
     "object"  : dict,
     "array"   : list,
     "boolean" : bool,
-    "dataframe": pd.DataFrame, # Note that “pd.dataframe” is *not* a 
+    "dataframe": pd.DataFrame, # Note that “pd.DataFrame” is *not* a 
     # JSON-Schema type; it’s inclusion is a convenience to allow for the inline
     # use of Pandas DataFrames as a source if analytic_schema.py is used in a
     # Jupyter notebook, for example.
+}
 
 def _validate(data: Any, schema: Mapping[str, Any], *, path: str = "") -> None:
     """
