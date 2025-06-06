@@ -20,12 +20,15 @@
       },
       "data_source_type": {
         "type": "string",
-        "enum": ["file", "IONIC dataset", "api endpoint"],
+        "enum": ["file", "IONIC dataset", "api endpoint", "df"],
         "description": "Transport mechanism used to retrieve data for the run."
       },
       "data_source": {
-        "type": "string",
-        "description": "Path, identifier or URL that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs')."
+        "oneOf": [
+            { "type": "string" },
+            { "type": "dataframe"}
+        ],
+        "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs', df)."
       },
       "log_path": {
         "type": "string",
