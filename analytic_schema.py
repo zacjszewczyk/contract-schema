@@ -93,6 +93,17 @@ import copy
 import pandas as pd
 
 # =============================================================================
+# 0.  Support execution in notebook or as standalone scripts
+# =============================================================================
+def display_output(obj):
+    try:
+        get_ipython
+        from IPython.display import display
+        display(obj)
+    except NameError:
+        print(obj)
+
+# =============================================================================
 # 1.  Load the contract – INPUT_SCHEMA / OUTPUT_SCHEMA
 # =============================================================================
 # NOTE: The JSON file is considered the *single source of truth*.  This Python
@@ -745,9 +756,9 @@ class OutputDoc(dict):
             path_obj.write_text(
                 json.dumps(self, indent=indent, ensure_ascii=False), encoding="utf-8"
             )
-            print(f"Output document saved to: {path_obj.resolve()}", file=sys.stderr)
+            display_output(f"Output document saved to: {path_obj.resolve()}", file=sys.stderr)
         except Exception as exc:
-            print(f"Error saving output document to {path_obj}: {exc}", file=sys.stderr)
+            display_output(f"Error saving output document to {path_obj}: {exc}", file=sys.stderr)
             raise  # Re-throw to allow caller handling
 
 # =============================================================================
