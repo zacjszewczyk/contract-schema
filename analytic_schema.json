@@ -1,7 +1,6 @@
-Here’s the input schema with explicit defaults added to every non-required field.
-Nothing else has been modified.
-
 {
+  "title": "Analytic Schema",
+  "description": "Standard analytic notebook input and output schema.",
   "version": "1.0.0",
 
   "input": {
@@ -29,28 +28,25 @@ Nothing else has been modified.
       "data_source_type": {
         "type": ["string"],
         "required": true,
-        "enum": ["file", "IONIC dataset", "api endpoint", "df"],
+        "enum": ["file", "IONIC", "api", "df"],
         "description": "Transport mechanism used to retrieve data for the run."
       },
       "data_source": {
         "type": ["string", "dataframe"],
         "required": true,
-        "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs', df)."
+        "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'zeek_daily', 'https://api.example.com/logs', df)."
       },
-
-      /* ---------- optional fields with defaults ---------- */
-
       "log_path": {
         "type": ["string"],
         "required": false,
-        "default": "./{run_id}_{execution_dtg}.log",
-        "description": "Filesystem path or stream for execution logs. Default './{run_id}_{execution_dtg}.log'. Supports 'stdout' and 'stderr'."
+        "default": "stdout",
+        "description": "Filesystem path or stream for execution logs. Default 'stdout'. Supports 'stdout' and filestystem paths."
       },
       "output": {
         "type": ["string"],
         "required": false,
         "default": "stdout",
-        "description": "Destination for the notebook’s findings. Accepts 'stdout', 'stderr', or a file path."
+        "description": "Destination for the notebook’s findings. Supports 'stdout' or a file path."
       },
       "analytic_parameters": {
         "type": ["object", "string"],
@@ -123,7 +119,6 @@ Nothing else has been modified.
       "inputs": {
         "type": ["object"],
         "required": true,
-        "schema_ref": "input",
         "description": "Verbatim copy of the input parameter object for auditability."
       },
       "input_hash": {
