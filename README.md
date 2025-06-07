@@ -37,10 +37,20 @@
 **Required.** High-level overview of the project’s structure. Use this section to obviate the need for new users to dig through folders to uncover critical files or components.
 
 ```
-./repo
+./analytic_schema
 |_ README.md # This file.
 |
-|_
+|_ __init__.py
+|_ loader.py
+|_ parser.py
+|_ validator.py
+|_ output.py
+|
+tests/
+| |_ test_schema_io.py
+|
+|_ example_usage.py
+|_ analytic_schema.json
 |
 |_ makefile # Project makefile
 |_ LICENSE.md # Project license.
