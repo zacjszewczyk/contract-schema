@@ -97,13 +97,26 @@ import pandas as pd
 # 0.  Support execution in notebook or as standalone scripts
 # =============================================================================
 
-def display_output(obj):
+def display_output(obj, *args, **kwargs):
+    """
+    Smart wrapper that renders *obj* in a notebook **or** prints it in a
+    terminal while still accepting the usual ``print`` keyword arguments
+    (e.g. ``file=sys.stderr``).
+
+    Parameters
+    ----------
+    obj
+        The object or string to display.
+    *args, **kwargs
+        Forwarded verbatim to :func:`IPython.display.display` when an IPython
+        shell is detected, otherwise to :func:`print`.
+    """
     try:
         get_ipython  # type: ignore
         from IPython.display import display
-        display(obj)
+        display(obj, *args, **kwargs)
     except NameError:
-        print(obj)
+        print(obj, *args, **kwargs)
 
 # =============================================================================
 # 1.  Load the contract – INPUT_SCHEMA / OUTPUT_SCHEMA
