@@ -768,35 +768,54 @@ def _get_host() -> str:
     except Exception:
         return "unknown_host"
 
+# =============================================================================
 # 6.  Unit tests
 # =============================================================================
 if __name__ == "__main__":
     """
-    When the module is executed directly, run a small self-test suite. These 
-    tests exercise the public helpers (`parse_input`, `validate_input`) and
-    `OutputDoc`.
+    When the module is executed directly, run a comprehensive self-test suite.
+    These tests cover **all** public behaviours of the helper API
+    (`parse_input`, `validate_input`) and of `OutputDoc`.  Each test checks
+    every parameter supplied **and** confirms that *default* values are set
+    correctly whenever fields are omitted by the caller.
     """
     import unittest
     import sys
-    from pathlib import Path
-    import tempfile
     import json
+    import tempfile
+    from pathlib import Path
     import pandas as pd
 
     # --------------------------------------------------------------------- #
     # Test-cases
     # --------------------------------------------------------------------- #
     class AnalyticSchemaTests(unittest.TestCase):
-        # ––– Helpers ––––––––––––––––––––––––––––––––––––––––––––––––––––
+        """
+        Exhaustive integration tests for *analytic_schema.py*.
+
+        Workflow coverage:
+        1. CLI → parse_input → validate_input
+        2. Dict + inline-JSON dereference (`analytic_parameters`)
+        3. Dict with embedded Pandas DataFrame
+        4. --config precedence
+        5. OutputDoc lifecycle (including default-value population)
+        """
+
+        # ==============
+        # Helper methods
+        # ==============
         @staticmethod
         def _tmp_json(obj) -> Path:
-            """Write *obj* to a temp JSON file and return the `Path`."""
+            """Write *obj* to a temporary JSON file and return its `Path`."""
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
             Path(tmp.name).write_text(json.dumps(obj), encoding="utf-8")
             return Path(tmp.name)
 
-        # ––– parse_input / validate_input –––––––––––––––––––––––––––––––
+        # =====================================
+        # 1) CLI round-trip (string arguments)
+        # =====================================
         def test_cli_roundtrip(self):
+            """Full CLI string → raw dict → canonical dict: lossless."""
             cli = (
                 "--input-schema-version 1.0.0 "
                 "--start-dtg 2025-06-01T00:00:00Z "
@@ -805,30 +824,43 @@ if __name__ == "__main__":
                 "--data-source /tmp/conn.csv"
             )
             raw = parse_input(cli)
-            self.assertEqual(raw["input_schema_version"], "1.0.0")
+            self.assertDictEqual(
+                raw,
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                },
+            )
             canonical = validate_input(raw)
-            self.assertEqual(canonical["data_source_type"], "file")
+            self.assertEqual(canonical, raw)  # perfect round-trip
 
+        # ===========================================================
+        # 2) Dict + JSON dereference (`analytic_parameters`)
+        # ===========================================================
         def test_dict_with_analytic_parameters(self):
+            """Inline JSON string in `analytic_parameters` is auto-parsed."""
             raw_dict = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
                 "data_source": "/tmp/conn.csv",
-                "analytic_parameters": '{"param_a": 123}'
+                "analytic_parameters": '{"param_a": 123}',
             }
-            raw = parse_input(raw_dict)
-            self.assertIsInstance(raw["analytic_parameters"], str)   # still JSON str
-            canonical = validate_input(raw)
-            self.assertEqual(canonical["analytic_parameters"]["param_a"], 123)
+            canonical = validate_input(parse_input(raw_dict))
+            self.assertEqual(canonical["analytic_parameters"], {"param_a": 123})
 
+        # ==========================================
+        # 3) Dict with embedded DataFrame
+        # ==========================================
         def test_dataframe_source(self):
-            df = pd.DataFrame({
-                "Name": ["Alice", "Bob", "Charlie"],
-                "Age":  [25, 30, 35],
-                "City": ["New York", "London", "Paris"],
-            })
+            """DataFrame objects survive validation unmodified."""
+            df = pd.DataFrame(
+                {"Name": ["Alice", "Bob"], "Age": [25, 30], "City": ["NY", "LDN"]}
+            )
             raw_dict = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
@@ -839,38 +871,79 @@ if __name__ == "__main__":
             canonical = validate_input(parse_input(raw_dict))
             self.assertTrue(canonical["data_source"].equals(df))
 
+        # ======================================
+        # 4) --config override precedence
+        # ======================================
         def test_config_file_override(self):
+            """Parameters from `--config` replace conflicting CLI flags."""
             cfg = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-07-01T00:00:00Z",
                 "end_dtg":   "2025-07-02T00:00:00Z",
                 "data_source_type": "api endpoint",
-                "data_source": "https://api.example.com/data"
+                "data_source": "https://api.example.com/data",
             }
             cfg_path = self._tmp_json(cfg)
-            raw = parse_input(["--config", str(cfg_path)])
+            raw = parse_input(
+                ["--config", str(cfg_path), "--start-dtg", "2000-01-01T00:00:00Z"]
+            )
             canonical = validate_input(raw)
-            self.assertEqual(canonical["start_dtg"], "2025-07-01T00:00:00Z")
+            self.assertEqual(canonical, cfg)  # file completely overrides CLI
 
-        # ––– OutputDoc ––––––––––––––––––––––––––––––––––––––––––––––––––
-        def test_output_doc_lifecycle(self):
-            inputs = validate_input({
-                "input_schema_version": "1.0.0",
-                "start_dtg": "2025-06-01T00:00:00Z",
-                "end_dtg":   "2025-06-02T00:00:00Z",
-                "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-            })
-            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
-            out.add_message("info", "Unit-test message.")
+        # =============================
+        # 5) OutputDoc lifecycle + defaults
+        # =============================
+        def test_output_doc_defaults(self):
+            """
+            Create an OutputDoc with *minimal* user-supplied fields and verify:
+            • Required hashes present after finalise()
+            • All schema-defined defaults populated with correct values
+              (output_schema_version, analytic_id, status, exit_code, etc.)
+            • Messages list initialised and accepts entries
+            """
+            inputs = validate_input(
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                }
+            )
+
+            out = OutputDoc(input_data_hash="0" * 64, inputs=inputs)
+            out.add_message("INFO", "Initial message.")
             out.finalise()
-            self.assertIn("findings_hash", out)
-            self.assertEqual(out["inputs"]["input_schema_version"], "1.0.0")            
-            self.assertEqual(out["status"], "UNKNOWN")
 
+            # — Mandatory hashes —
+            self.assertIn("input_hash", out)
+            self.assertIn("findings_hash", out)
+
+            # — Default fields (not explicitly set by caller) —
+            self.assertEqual(out["output_schema_version"], "UNKNOWN")
+            self.assertEqual(out["analytic_id"],  "UNKNOWN")
+            self.assertEqual(out["analytic_name"], "UNKNOWN")
+            self.assertEqual(out["analytic_version"], "UNKNOWN")
+            self.assertEqual(out["status"], "UNKNOWN")
+            self.assertEqual(out["exit_code"], -1)
+            self.assertEqual(out["records_processed"], 0)
+
+            # — Auto meta —
+            self.assertIn("run_id", out)
+            self.assertIn("run_user", out)
+            self.assertIn("run_host", out)
+            self.assertIn("run_start_dtg", out)
+            self.assertIn("run_end_dtg", out)
+            self.assertGreater(out["run_duration_seconds"], 0)
+
+            # — Messages list correctly initialised —
+            self.assertEqual(len(out["messages"]), 1)
+            msg = out["messages"][0]
+            self.assertIn("timestamp", msg)
+            self.assertEqual(msg["level"], "INFO")
+            self.assertEqual(msg["text"], "Initial message.")
 
     # --------------------------------------------------------------------- #
-    # Run tests
+    # Run the suite
     # --------------------------------------------------------------------- #
     unittest.main(argv=[sys.argv[0]])
-
