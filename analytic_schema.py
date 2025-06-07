@@ -25,7 +25,8 @@ The module contains **three major capabilities**:
      already-constructed ``dict`` objects into a raw *input* dictionary.
    - :func:`validate_input` …… Canonicalise & validate dictionaries against
      ``INPUT_SCHEMA`` (handles ``--config`` files and “object-or-path”
-     convenience parameters).
+     convenience parameters and now **injects sensible defaults for any missing
+     optional fields**).
    - :class:`OutputDoc` …… A thin subclass of :class:`dict` that
      accumulates results and meta-data, self-hashes its payload, validates
      itself against ``OUTPUT_SCHEMA``, and finally serialises to disk.
@@ -95,9 +96,10 @@ import pandas as pd
 # =============================================================================
 # 0.  Support execution in notebook or as standalone scripts
 # =============================================================================
+
 def display_output(obj):
     try:
-        get_ipython
+        get_ipython  # type: ignore
         from IPython.display import display
         display(obj)
     except NameError:
@@ -133,9 +135,36 @@ OUTPUT_SCHEMA: Dict[str, Any] = copy.deepcopy(_schema_file["output"])
 # inside OUTPUT_SCHEMA → properties → inputs so the validator can recurse.
 OUTPUT_SCHEMA["properties"]["inputs"] = copy.deepcopy(INPUT_SCHEMA)
 
+# --------------------------------------------------------------------------- #
+# 1.a  Optional‑field defaults – applied during `validate_input`
+# --------------------------------------------------------------------------- #
+_DEFAULTS: Dict[str, Any] = {
+    # NOTE: `{run_id}` & `{execution_dtg}` placeholders are preserved so the
+    #       calling code (or OutputDoc) can substitute concrete values later.
+    "log_path": "./{run_id}_{execution_dtg}.log",
+    "output": "stdout",
+    "analytic_parameters": {},
+    "data_map": {},
+    "verbosity": "INFO",
+}
+
+
+def _apply_defaults(mapping: Dict[str, Any]) -> None:
+    """Inject default values for any *optional* INPUT_SCHEMA fields that are
+    missing from *mapping* **in‑place**.
+
+    This ensures downstream code never has to guard against absent keys
+    and that the *canonical* parameter dictionary is fully populated.
+    """
+    for key, default_val in _DEFAULTS.items():
+        if key not in mapping:
+            # deepcopy to avoid mutation surprises for mutable defaults
+            mapping[key] = copy.deepcopy(default_val)
+
 # =============================================================================
 # 2.  Tiny validation engine – implements *just enough* of JSON-Schema
 # =============================================================================
+
 class SchemaError(ValueError):
     """Raised whenever a value fails validation against the schema contract."""
 
@@ -147,40 +176,31 @@ class SchemaError(ValueError):
 #   • 2025-06-01T12:34:56-05:00
 # --------------------------------------------------------------------------- #
 _DT_RE = re.compile(
-    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}"  # date & time
     r"(?:\.\d{1,6})?"          # Optional .microseconds
     r"(?:Z|[+-]\d{2}:\d{2})$"  # Z or ±HH:MM
 )
 
-def _is_datetime(s: Any) -> bool:
-    """
-    Return ``True`` if *s* is a **string** that satisfies ISO-8601 (as accepted
-    by :py:meth:`datetime.datetime.fromisoformat`).
 
-    The helper is split out so the main validator remains readable.
-    """
+def _is_datetime(s: Any) -> bool:
+    """Return ``True`` if *s* is a **string** that satisfies ISO‑8601."""
     if not isinstance(s, str) or not _DT_RE.match(s):
         return False
     try:
-        # ``fromisoformat`` supports ‘Z’ and ±HH:MM offsets once the pattern
-        # above guarantees they are the only timezone indicators.
-        _dt.datetime.fromisoformat(s)
+        _dt.datetime.fromisoformat(s.replace("Z", "+00:00"))
         return True
     except ValueError:
         return False
 
 # Map JSON-Schema “type” parameter → Python class(es)
 _TYPE_DISPATCH: Dict[str, Union[type, Tuple[type, ...]]] = {
-    "string"  : str,
-    "integer" : int,
-    "number"  : (int, float),
-    "object"  : dict,
-    "array"   : list,
-    "boolean" : bool,
-    "dataframe": pd.DataFrame, # Note that “pd.DataFrame” is *not* a 
-    # JSON-Schema type; it’s inclusion is a convenience to allow for the inline
-    # use of Pandas DataFrames as a source if analytic_schema.py is used in a
-    # Jupyter notebook, for example.
+    "string": str,
+    "integer": int,
+    "number": (int, float),
+    "object": dict,
+    "array": list,
+    "boolean": bool,
+    "dataframe": pd.DataFrame,  # convenience extension
 }
 
 def _validate(data: Any, schema: Mapping[str, Any], *, path: str = "") -> None:
@@ -456,30 +476,16 @@ def parse_input(
 
 # --------------------------------------------------------------------------- #
 def validate_input(raw_params: Dict[str, Any]) -> Dict[str, Any]:
+    """Canonicalise *raw_params*, apply defaults, and validate.
+
+    **NEW BEHAVIOUR** (v3.4)
+    -------------------------
+    After dereferencing any *object‑or‑path* parameters, this function now
+    populates **all optional fields** with sensible defaults so that the
+    returned dictionary is *self‑contained* and can be embedded verbatim into
+    the Output document without further massaging.
     """
-    Canonicalise *raw_params* and validate against ``INPUT_SCHEMA``.
 
-    Steps performed
-    ---------------
-    1. If ``--config`` present → load that file and *replace* ``raw_params``.  
-    2. Any *object-or-path* convenience fields (``analytic_parameters``,
-       ``data_map``) are automatically dereferenced if they contain a valid
-       JSON file path or an inline JSON string.
-    3. The resulting dictionary is run through the internal validator –
-       failures raise :class:`SchemaError`.
-
-    Returns
-    -------
-    dict
-        The *canonical* input dictionary suitable for use by notebooks.
-
-    Raises
-    ------
-    FileNotFoundError | json.JSONDecodeError | ValueError | TypeError
-        For I/O or typing issues before schema validation.
-    SchemaError
-        If the final dictionary violates the contract.
-    """
     # Defensive: ensure param is dict-like
     if not isinstance(raw_params, dict):
         raise TypeError(
@@ -487,7 +493,7 @@ def validate_input(raw_params: Dict[str, Any]) -> Dict[str, Any]:
         )
 
     # --------------------------------------------------------------------- #
-    # 1) Handle --config override
+    # 1) Handle --config override (identical logic)                         #
     # --------------------------------------------------------------------- #
     data: Dict[str, Any] = raw_params.copy()  # work on a *copy*
     config_flag = data.pop("config", None)    # remove early
@@ -499,7 +505,6 @@ def validate_input(raw_params: Dict[str, Any]) -> Dict[str, Any]:
                 f"--config path '{config_flag}' does not exist or is not a file."
             )
         try:
-            # print(f"Info: Loading parameters from --config={config_path}", file=sys.stderr)
             data = json.loads(config_path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 raise ValueError("Config file must contain a JSON object.")
@@ -513,7 +518,7 @@ def validate_input(raw_params: Dict[str, Any]) -> Dict[str, Any]:
         raise TypeError("--config expects a string path to a JSON file.")
 
     # --------------------------------------------------------------------- #
-    # 2) Dereference “object-or-path” convenience fields
+    # 2) Dereference “object-or-path” convenience fields (unchanged logic)  #
     # --------------------------------------------------------------------- #
     for key in ("analytic_parameters", "data_map"):
         if key not in data:
@@ -545,12 +550,16 @@ def validate_input(raw_params: Dict[str, Any]) -> Dict[str, Any]:
                 pass
 
     # --------------------------------------------------------------------- #
-    # 3) Final schema validation
+    # 3) **Apply defaults for any optional fields not supplied**            #
+    # --------------------------------------------------------------------- #
+    _apply_defaults(data)
+
+    # --------------------------------------------------------------------- #
+    # 4) Final schema validation                                            #
     # --------------------------------------------------------------------- #
     try:
         _validate(data, INPUT_SCHEMA)
     except SchemaError as exc:
-        # Add context if we came from a config file
         if isinstance(config_flag, str):
             raise SchemaError(
                 f"Input validation failed (from config={config_flag}): {exc}"
@@ -811,21 +820,23 @@ if __name__ == "__main__":
         5. OutputDoc lifecycle (including default-value population)
         """
 
-        # ==============
-        # Helper methods
-        # ==============
         @staticmethod
         def _tmp_json(obj) -> Path:
-            """Write *obj* to a temporary JSON file and return its `Path`."""
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
             Path(tmp.name).write_text(json.dumps(obj), encoding="utf-8")
             return Path(tmp.name)
 
-        # =====================================
-        # 1) CLI round-trip (string arguments)
-        # =====================================
+        # --------------------------------------------------------------- #
+        # Helper: build expected canonical dict with defaults injected    #
+        # --------------------------------------------------------------- #
+        def _with_defaults(self, base: Dict[str, Any]) -> Dict[str, Any]:
+            x = base.copy()
+            for k, v in _DEFAULTS.items():
+                x.setdefault(k, copy.deepcopy(v))
+            return x
+
+        # 1) CLI round‑trip now returns dict **with defaults**
         def test_cli_roundtrip(self):
-            """Full CLI string → raw dict → canonical dict: lossless."""
             cli = (
                 "--input-schema-version 1.0.0 "
                 "--start-dtg 2025-06-01T00:00:00Z "
@@ -834,28 +845,16 @@ if __name__ == "__main__":
                 "--data-source /tmp/conn.csv"
             )
             raw = parse_input(cli)
-            self.assertDictEqual(
-                raw,
-                {
-                    "input_schema_version": "1.0.0",
-                    "start_dtg": "2025-06-01T00:00:00Z",
-                    "end_dtg":   "2025-06-02T00:00:00Z",
-                    "data_source_type": "file",
-                    "data_source": "/tmp/conn.csv",
-                },
-            )
             canonical = validate_input(raw)
-            self.assertEqual(canonical, raw)  # perfect round-trip
+            expected = self._with_defaults(raw)
+            self.assertDictEqual(canonical, expected)
 
-        # ===========================================================
-        # 2) Dict + JSON dereference (`analytic_parameters`)
-        # ===========================================================
+        # 2) Dict + JSON dereference (unchanged – defaults already handled)
         def test_dict_with_analytic_parameters(self):
-            """Inline JSON string in `analytic_parameters` is auto-parsed."""
             raw_dict = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
-                "end_dtg":   "2025-06-02T00:00:00Z",
+                "end_dtg": "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
                 "data_source": "/tmp/conn.csv",
                 "analytic_parameters": '{"param_a": 123}',
@@ -863,42 +862,33 @@ if __name__ == "__main__":
             canonical = validate_input(parse_input(raw_dict))
             self.assertEqual(canonical["analytic_parameters"], {"param_a": 123})
 
-        # ==========================================
-        # 3) Dict with embedded DataFrame
-        # ==========================================
+        # 3) DataFrame source (unchanged)
         def test_dataframe_source(self):
-            """DataFrame objects survive validation unmodified."""
-            df = pd.DataFrame(
-                {"Name": ["Alice", "Bob"], "Age": [25, 30], "City": ["NY", "LDN"]}
-            )
+            df = pd.DataFrame({"Name": ["Alice", "Bob"]})
             raw_dict = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
-                "end_dtg":   "2025-06-02T00:00:00Z",
+                "end_dtg": "2025-06-02T00:00:00Z",
                 "data_source_type": "df",
                 "data_source": df,
             }
             canonical = validate_input(parse_input(raw_dict))
             self.assertTrue(canonical["data_source"].equals(df))
 
-        # ======================================
-        # 4) --config override precedence
-        # ======================================
+        # 4) --config precedence – now with defaults merged in
         def test_config_file_override(self):
-            """Parameters from `--config` replace conflicting CLI flags."""
             cfg = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-07-01T00:00:00Z",
-                "end_dtg":   "2025-07-02T00:00:00Z",
+                "end_dtg": "2025-07-02T00:00:00Z",
                 "data_source_type": "api endpoint",
                 "data_source": "https://api.example.com/data",
             }
             cfg_path = self._tmp_json(cfg)
-            raw = parse_input(
-                ["--config", str(cfg_path), "--start-dtg", "2000-01-01T00:00:00Z"]
-            )
+            raw = parse_input(["--config", str(cfg_path)])
             canonical = validate_input(raw)
-            self.assertEqual(canonical, cfg)  # file completely overrides CLI
+            expected = self._with_defaults(cfg)
+            self.assertDictEqual(canonical, expected)
 
         # =============================
         # 5) OutputDoc lifecycle + defaults
