@@ -735,10 +735,9 @@ class OutputDoc(dict):
           may fail downstream validation!
         """
         if not self.get("run_id"):
-            print(
-                "Warning: OutputDoc.save() called before finalise(). "
-                "Document may be incomplete.",
-                file=sys.stderr,
+            raise RuntimeError(
+                "OutputDoc.save() called before finalise(); "
+                "document could be incomplete."
             )
 
         path_obj = pathlib.Path(path)
@@ -1036,6 +1035,292 @@ if __name__ == "__main__":
             with self.assertRaises(SchemaError):
                 validate_input(parse_input(invalid))
 
+        # =============================
+        # 11) Invalid JSON in file path
+        # =============================
+        def test_analytic_parameters_invalid_json_file(self):
+            """
+            A file path supplied for `analytic_parameters` that is **not**
+            valid JSON must raise `json.JSONDecodeError`.
+            """
+            bad_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+            Path(bad_file.name).write_text("NOT-JSON", encoding="utf-8")
+
+            raw = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "analytic_parameters": bad_file.name,
+            }
+            with self.assertRaises(json.JSONDecodeError):
+                validate_input(parse_input(raw))
+
+        # =============================
+        # 12) Plain-string analytic_parameters
+        # =============================
+        def test_analytic_parameters_plain_string(self):
+            """
+            If `analytic_parameters` is an arbitrary string that is **neither**
+            a path nor valid JSON, it should pass unchanged (schema allows
+            string via `oneOf`).
+            """
+            raw = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "analytic_parameters": "just-a-flag",   # ← arbitrary string
+            }
+            canonical = validate_input(parse_input(raw))
+            self.assertEqual(canonical["analytic_parameters"], "just-a-flag")
+
+        # =============================
+        # 13) Verbosity enum case-sensitivity
+        # =============================
+        def test_verbosity_case_sensitive(self):
+            """
+            The `verbosity` enum is uppercase in the contract.  Lower-case
+            should fail validation.
+            """
+            invalid = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "verbosity": "info",   # ← invalid casing
+            }
+            with self.assertRaises(SchemaError):
+                validate_input(parse_input(invalid))
+
+        # =============================
+        # 14) OutputDoc without inputs
+        # =============================
+        def test_outputdoc_missing_inputs(self):
+            """
+            Calling `finalise()` without an `inputs` dict must raise
+            `SchemaError`.
+            """
+            out = OutputDoc(input_data_hash="0" * 64)
+            with self.assertRaises(SchemaError):
+                out.finalise()
+
+        # =============================
+        # 15) Invalid log level in add_message
+        # =============================
+        def test_outputdoc_invalid_log_level(self):
+            """`add_message()` with an unknown severity should raise `ValueError`."""
+            inputs = validate_input(
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                }
+            )
+            out = OutputDoc(input_data_hash="0" * 64, inputs=inputs)
+            with self.assertRaises(ValueError):
+                out.add_message("TRACE", "should fail")   # not in enum
+
+        # =============================
+        # 16) Invalid findings structure
+        # =============================
+        def test_outputdoc_invalid_findings_structure(self):
+            """
+            Findings array items must match the nested object schema.  A
+            malformed finding should trigger `SchemaError` during `finalise()`.
+            """
+            inputs = validate_input(
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                }
+            )
+            bad_finding = {"foo": "bar"}  # missing all required fields
+            out = OutputDoc(input_data_hash="0"*64, inputs=inputs, findings=[bad_finding])
+            with self.assertRaises(SchemaError):
+                out.finalise()
+
+        # =============================
+        # 17) Non-string --config value
+        # =============================
+        def test_config_flag_non_string(self):
+            """
+            If the raw param dict contains a non-string `config` value,
+            `validate_input` must raise `TypeError`.
+            """
+            with self.assertRaises(TypeError):
+                validate_input({"config": 123})
+
+        # =============================
+        # 18) Unknown CLI argument
+        # =============================
+        def test_cli_unknown_argument(self):
+            """An unrecognised CLI flag should raise `ValueError`."""
+            with self.assertRaises(ValueError):
+                parse_input("--bogus-flag true")
+
+        # =============================
+        # 19) data_source wrong Python type
+        # =============================
+        def test_data_source_invalid_python_type(self):
+            """
+            Supplying a non-string / non-DataFrame object for `data_source`
+            must violate the `oneOf` and raise `SchemaError`.
+            """
+            invalid = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "df",
+                "data_source": 123,   # ← not string, not DataFrame
+            }
+            with self.assertRaises(SchemaError):
+                validate_input(parse_input(invalid))
+
+        # =============================
+        # 20) data_map file dereference
+        # =============================
+        def test_data_map_file_deref(self):
+            """
+            `data_map` supplied as a JSON file path must be auto-loaded into a
+            dict during validation.
+            """
+            tmp_file = self._tmp_json({"src_ip": "source_ip", "dst_ip": "dest_ip"})
+            raw = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "data_map": str(tmp_file),
+            }
+            canonical = validate_input(parse_input(raw))
+            self.assertEqual(
+                canonical["data_map"],
+                {"src_ip": "source_ip", "dst_ip": "dest_ip"},
+            )
+
+        # =============================
+        # 21) @response-file CLI syntax
+        # =============================
+        def test_cli_response_file(self):
+            """
+            The ArgumentParser supports GNU ‘@file’ response files.  Ensure
+            `parse_input` correctly expands an @-prefixed filename where each
+            *token* is written on a separate line.
+
+            (Using one token per line avoids the edge-case where argparse
+            treats “flag + value” as a single argument.)
+            """
+            tokens = [
+                "--input-schema-version",
+                "1.0.0",
+                "--start-dtg",
+                "2025-06-01T00:00:00Z",
+                "--end-dtg",
+                "2025-06-02T00:00:00Z",
+                "--data-source-type",
+                "file",
+                "--data-source",
+                "/tmp/conn.csv",
+            ]
+            tmp = tempfile.NamedTemporaryFile(
+                delete=False, mode="w", encoding="utf-8"
+            )
+            tmp.write("\n".join(tokens))
+            tmp.close()
+
+            canonical = validate_input(parse_input(f"@{tmp.name}"))
+            self.assertEqual(canonical["data_source_type"], "file")
+            self.assertEqual(canonical["data_source"], "/tmp/conn.csv")
+
+        # =============================
+        # 22) Valid verbosity enum value
+        # =============================
+        def test_verbosity_valid_value(self):
+            """Upper-case verbosity values present in the enum must validate."""
+            raw = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "verbosity": "DEBUG",
+            }
+            canonical = validate_input(parse_input(raw))
+            self.assertEqual(canonical["verbosity"], "DEBUG")
+
+        # =============================
+        # 23) Message timestamp & level
+        # =============================
+        def test_outputdoc_message_iso_timestamp(self):
+            """
+            `add_message` must embed ISO-8601 timestamps and a level from the
+            allowed enum.
+            """
+            inputs = validate_input(
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                }
+            )
+            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            out.add_message("WARN", "something happened")
+            ts = out["messages"][0]["timestamp"]
+            self.assertRegex(ts, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
+            self.assertEqual(out["messages"][0]["level"], "WARN")
+
+        # =============================
+        # 24) Multiple messages append
+        # =============================
+        def test_outputdoc_multiple_messages(self):
+            """Consecutive `add_message` calls should append to the list."""
+            inputs = validate_input(
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                }
+            )
+            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            out.add_message("INFO", "first")
+            out.add_message("ERROR", "second")
+            self.assertEqual([m["text"] for m in out["messages"]], ["first", "second"])
+
+        # =============================
+        # 25) save() before finalise() must fail
+        # =============================
+        def test_outputdoc_save_without_finalise(self):
+            """
+            Calling `save()` prior to `finalise()` must now raise
+            `RuntimeError` to prevent incomplete documents from being written.
+            """
+            inputs = validate_input(
+                {
+                    "input_schema_version": "1.0.0",
+                    "start_dtg": "2025-06-01T00:00:00Z",
+                    "end_dtg":   "2025-06-02T00:00:00Z",
+                    "data_source_type": "file",
+                    "data_source": "/tmp/conn.csv",
+                }
+            )
+            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            tmp_path = Path(tempfile.NamedTemporaryFile(delete=False, suffix=".json").name)
+            with self.assertRaises(RuntimeError):
+                out.save(tmp_path)
     
     # --------------------------------------------------------------------- #
     # Run the suite
