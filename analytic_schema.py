@@ -650,9 +650,34 @@ class OutputDoc(dict):
     # --------------------------------------------------------------------- #
     @staticmethod
     def _hash(obj: Any) -> str:
-        """Return *stable* SHA-256 hex digest of *obj* (JSON-serialised)."""
+        """
+        Return a *stable* SHA-256 hex digest of *obj*.
+
+        Any values that are not natively JSON-serialisable (currently only
+        Pandas DataFrames are expected) are converted into a deterministic
+        representation first.
+
+        * **DataFrame** – reduced to the SHA-256 of its
+          ``to_json(orient="split", date_unit="ns")`` output and replaced by a
+          stub ``{"__dataframe_sha256__": "<digest>"}``.  This keeps the parent
+          object JSON-friendly while ensuring the hash changes whenever the
+          frame’s *content* changes.
+        """
+        def _serialise(x: Any) -> Any:
+            if isinstance(x, pd.DataFrame):
+                df_json = x.to_json(orient="split", date_unit="ns")
+                return {
+                    "__dataframe_sha256__": hashlib.sha256(df_json.encode()).hexdigest()
+                }
+            if isinstance(x, dict):
+                return {k: _serialise(v) for k, v in x.items()}
+            if isinstance(x, (list, tuple)):
+                return [_serialise(v) for v in x]
+            return x  # primitive: str/int/float/bool/None
+
+        canonical = _serialise(obj)
         return hashlib.sha256(
-            json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
 
     # --------------------------------------------------------------------- #
