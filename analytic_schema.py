@@ -488,7 +488,7 @@ def validate_input(raw_params: Dict[str, Any]) -> Dict[str, Any]:
                 f"--config path '{config_flag}' does not exist or is not a file."
             )
         try:
-            print(f"Info: Loading parameters from --config={config_path}", file=sys.stderr)
+            # print(f"Info: Loading parameters from --config={config_path}", file=sys.stderr)
             data = json.loads(config_path.read_text(encoding="utf-8"))
             if not isinstance(data, dict):
                 raise ValueError("Config file must contain a JSON object.")
@@ -943,6 +943,100 @@ if __name__ == "__main__":
             self.assertEqual(msg["level"], "INFO")
             self.assertEqual(msg["text"], "Initial message.")
 
+        # =============================
+        # 6) Missing required field
+        # =============================
+        def test_missing_required_field(self):
+            """
+            Omitting any **required** top-level parameter must raise
+            `SchemaError`.  Here we drop `data_source` and expect failure.
+            """
+            invalid = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                # data_source  ← deliberately omitted
+            }
+            with self.assertRaises(SchemaError):
+                validate_input(parse_input(invalid))
+
+        # =============================
+        # 7) Invalid enum value
+        # =============================
+        def test_invalid_enum_value(self):
+            """
+            Supplying a value outside an `enum` must raise `SchemaError`.
+            `data_source_type='ftp'` is not allowed by the contract.
+            """
+            invalid = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "ftp",       # ← invalid
+                "data_source": "/tmp/conn.csv",
+            }
+            with self.assertRaises(SchemaError):
+                validate_input(parse_input(invalid))
+
+        # =============================
+        # 8) Invalid date-time format
+        # =============================
+        def test_invalid_datetime_format(self):
+            """
+            Timestamps must be full ISO-8601 with time + zone.  A date-only
+            string should fail validation.
+            """
+            invalid = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01",                # ← bad format
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+            }
+            with self.assertRaises(SchemaError):
+                validate_input(parse_input(invalid))
+
+        # =============================
+        # 9) File-path dereference
+        # =============================
+        def test_analytic_parameters_file_deref(self):
+            """
+            `analytic_parameters` supplied as a *file path* must be
+            auto-loaded into a dict during validation.
+            """
+            tmp_file = self._tmp_json({"param_x": 42})
+            raw = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "analytic_parameters": str(tmp_file),
+            }
+            canonical = validate_input(parse_input(raw))
+            self.assertEqual(canonical["analytic_parameters"], {"param_x": 42})
+
+        # =============================
+        # 10) AdditionalProperties check
+        # =============================
+        def test_unknown_field_rejected(self):
+            """
+            The schema sets `"additionalProperties": false`; any extraneous
+            field should trigger `SchemaError`.
+            """
+            invalid = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "unexpected_field": "oops",      # ← not in schema
+            }
+            with self.assertRaises(SchemaError):
+                validate_input(parse_input(invalid))
+
+    
     # --------------------------------------------------------------------- #
     # Run the suite
     # --------------------------------------------------------------------- #
