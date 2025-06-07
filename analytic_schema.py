@@ -770,7 +770,7 @@ class OutputDoc(dict):
         # --- Final schema validation ----------------------------------------------
         _validate(self, OUTPUT_SCHEMA, path="OutputDoc")
 
-    def save(self, path: Union[str, pathlib.Path], *, indent: int = 2) -> None:
+    def save(self, path: Union[str, pathlib.Path], *, indent: int = 2, quiet = False) -> None:
         """
         Write the validated document to *path* as pretty-printed JSON.
         ... (docstring) ...
