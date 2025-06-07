@@ -790,9 +790,11 @@ class OutputDoc(dict):
                 json.dumps(serialisable_doc, indent=indent, ensure_ascii=False),
                 encoding="utf-8"
             )
-            display_output(f"Output document saved to: {path_obj.resolve()}", file=sys.stderr)
+            if not quiet:
+                display_output(f"Output document saved to: {path_obj.resolve()}", file=sys.stderr)
         except Exception as exc:
-            display_output(f"Error saving output document to {path_obj}: {exc}", file=sys.stderr)
+            if not quiet:
+                display_output(f"Error saving output document to {path_obj}: {exc}", file=sys.stderr)
             raise  # Re-throw to allow caller handling
 
 # =============================================================================
