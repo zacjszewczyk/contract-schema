@@ -690,51 +690,85 @@ class OutputDoc(dict):
             }
         )
 
-    def _to_serialisable(self) -> Dict[str, Any]:
-        """
-        Return a deep copy of the document with non-JSON-native types
-        (like DataFrames) converted to a serialisable representation.
-        """
-        def _convert(x: Any) -> Any:
-            if isinstance(x, pd.DataFrame):
-                df_json = x.to_json(orient="split", date_unit="ns")
-                return {
-                    "__dataframe_sha256__": hashlib.sha256(df_json.encode()).hexdigest()
-                }
-            if isinstance(x, dict):
-                return {k: _convert(v) for k, v in x.items()}
-            if isinstance(x, (list, tuple)):
-                return [_convert(v) for v in x]
-            return x  # primitive: str/int/float/bool/None
-
-        return _convert(self)
-
+    # ────────────────────────────────────────────────────────────────────
+    # Internal helpers
+    # ────────────────────────────────────────────────────────────────────
     @staticmethod
-    def _hash(obj: Any) -> str:
+    def _json_safe(x: Any) -> Any:
         """
-        Return a *stable* SHA-256 hex digest of *obj*.
-        ... (docstring can be simplified now) ...
+        Recursively convert *x* into a structure that ``json.dumps`` accepts.
+
+        * **pandas.DataFrame** → replace with
+          ``{"__dataframe_sha256__": "<digest>"}``.
+        * dicts/lists/tuples → recurse.
+        * primitives are returned unchanged.
         """
-        # NOTE: The _to_serialisable method is now responsible for handling
-        #       DataFrames before hashing.
-        # We assume the object passed here is already serialisable.
+        if isinstance(x, pd.DataFrame):
+            df_json = x.to_json(orient="split", date_unit="ns")
+            return {"__dataframe_sha256__": hashlib.sha256(df_json.encode()).hexdigest()}
+        if isinstance(x, dict):
+            return {k: OutputDoc._json_safe(v) for k, v in x.items()}
+        if isinstance(x, (list, tuple)):
+            return [OutputDoc._json_safe(v) for v in x]
+        return x  # str / int / float / bool / None
+
+    @classmethod
+    def _hash(cls, obj: Any) -> str:
+        """
+        Stable SHA-256 over *obj* after JSON-safe conversion.
+        """
+        safe = cls._json_safe(obj)
         return hashlib.sha256(
-            json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
+            json.dumps(safe, sort_keys=True, separators=(",", ":")).encode()
         ).hexdigest()
+
+    def _to_serialisable(self) -> Dict[str, Any]:
+        """Deep-copy of self with all values passed through `_json_safe`."""
+        return OutputDoc._json_safe(self)
 
     # In finalise(), update the hashing call to use the serialised version
     def finalise(self) -> None:
-        # ...
-        serialisable_inputs = self._to_serialisable()["inputs"]
-        self["input_hash"] = self._hash(serialisable_inputs)
+        # ------------------------------------------------------------------
+        # Guard: inputs must exist and be a dict
+        # ------------------------------------------------------------------
+        if "inputs" not in self or not isinstance(self["inputs"], dict):
+            raise SchemaError("OutputDoc.finalise(): missing or invalid 'inputs' dict.")
 
+        run_end = _dt.datetime.now(_dt.timezone.utc)
+
+        # --- Populate meta defaults ------------------------------------------------
+        self.setdefault("run_id", str(uuid.uuid4()))
+        self.setdefault("run_user", _get_user())
+        self.setdefault("run_host", _get_host())
+        self.setdefault("run_start_dtg", self.__start_time.isoformat(timespec="seconds"))
+        self.setdefault("run_end_dtg",   run_end.isoformat(timespec="seconds"))
+        self.setdefault(
+            "run_duration_seconds",
+            round((run_end - self.__start_time).total_seconds(), 6),
+        )
+        
+        serialisable_inputs = self._to_serialisable()["inputs"]
+        self["input_hash"] = self._hash(self["inputs"])
+        
         self.setdefault("findings", [])
         if not isinstance(self["findings"], list):
             raise SchemaError("'findings' must be a list.")
 
         # Findings are already JSON-native, no conversion needed.
         self["findings_hash"] = self._hash(self["findings"])
-        # ... rest of finalise()
+
+        # --- Additional optional fields (safe defaults) ---------------------------
+        self.setdefault("input_schema_version",  self["inputs"].get("input_schema_version", "UNKNOWN"))
+        self.setdefault("output_schema_version", "UNKNOWN")
+        self.setdefault("analytic_id",           "UNKNOWN")
+        self.setdefault("analytic_name",         "UNKNOWN")
+        self.setdefault("analytic_version",      "UNKNOWN")
+        self.setdefault("status",                "UNKNOWN")
+        self.setdefault("exit_code",             -1)
+        self.setdefault("records_processed",     0)
+
+        # --- Final schema validation ----------------------------------------------
+        _validate(self, OUTPUT_SCHEMA, path="OutputDoc")
 
     def save(self, path: Union[str, pathlib.Path], *, indent: int = 2) -> None:
         """
@@ -1410,4 +1444,4 @@ if __name__ == "__main__":
     # --------------------------------------------------------------------- #
     # Run the suite
     # --------------------------------------------------------------------- #
-    unittest.main(argv=[sys.argv[0]])
+    unittest.main(argv=[sys.argv[0]], verbosity=2)
