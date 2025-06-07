@@ -768,55 +768,107 @@ def _get_host() -> str:
     except Exception:
         return "unknown_host"
 
+# 6.  Unit tests
 # =============================================================================
-# 6.  Command-line entry-point
-# =============================================================================
-def _main(cli_args: List[str]) -> None:  # pragma: no cover
+if __name__ == "__main__":
     """
-    Internal CLI handler (invoked when the module is executed with
-    ``python -m analytic_schema …``).
-
-    The function will:
-
-    1. Build the dynamic argument parser.
-    2. Parse *cli_args*.
-    3. Validate the resulting dictionary.
-    4. Print canonicalised JSON to ``stdout`` if successful; otherwise emit
-       errors to ``stderr`` and exit with a non-zero code.
+    When the module is executed directly, run a small self-test suite. These 
+    tests exercise the public helpers (`parse_input`, `validate_input`) and
+    `OutputDoc`.
     """
-    parser = _build_arg_parser()
+    import unittest
+    import sys
+    from pathlib import Path
+    import tempfile
+    import json
+    import pandas as pd
 
-    # Early exit for explicit “–help”
-    if not cli_args or any(flag in cli_args for flag in ("-h", "--help")):
-        parser.print_help(sys.stdout)
-        sys.exit(0)
+    # --------------------------------------------------------------------- #
+    # Test-cases
+    # --------------------------------------------------------------------- #
+    class AnalyticSchemaTests(unittest.TestCase):
+        # ––– Helpers ––––––––––––––––––––––––––––––––––––––––––––––––––––
+        @staticmethod
+        def _tmp_json(obj) -> Path:
+            """Write *obj* to a temp JSON file and return the `Path`."""
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+            Path(tmp.name).write_text(json.dumps(obj), encoding="utf-8")
+            return Path(tmp.name)
 
-    print("Attempting to parse and validate input…", file=sys.stderr)
-    try:
-        raw = parse_input(cli_args)
-        print(f"Raw parsed params: {raw}", file=sys.stderr)
+        # ––– parse_input / validate_input –––––––––––––––––––––––––––––––
+        def test_cli_roundtrip(self):
+            cli = (
+                "--input-schema-version 1.0.0 "
+                "--start-dtg 2025-06-01T00:00:00Z "
+                "--end-dtg 2025-06-02T00:00:00Z "
+                "--data-source-type file "
+                "--data-source /tmp/conn.csv"
+            )
+            raw = parse_input(cli)
+            self.assertEqual(raw["input_schema_version"], "1.0.0")
+            canonical = validate_input(raw)
+            self.assertEqual(canonical["data_source_type"], "file")
 
-        canonical = validate_input(raw)
+        def test_dict_with_analytic_parameters(self):
+            raw_dict = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+                "analytic_parameters": '{"param_a": 123}'
+            }
+            raw = parse_input(raw_dict)
+            self.assertIsInstance(raw["analytic_parameters"], str)   # still JSON str
+            canonical = validate_input(raw)
+            self.assertEqual(canonical["analytic_parameters"]["param_a"], 123)
 
-        print("\n✓ Input document is valid and conforms to the schema.")
-        print("\nCanonicalised Input:")
-        print(json.dumps(canonical, indent=2, sort_keys=True))
-        sys.exit(0)
+        def test_dataframe_source(self):
+            df = pd.DataFrame({
+                "Name": ["Alice", "Bob", "Charlie"],
+                "Age":  [25, 30, 35],
+                "City": ["New York", "London", "Paris"],
+            })
+            raw_dict = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "df",
+                "data_source": df,
+            }
+            canonical = validate_input(parse_input(raw_dict))
+            self.assertTrue(canonical["data_source"].equals(df))
 
-    except (SchemaError, FileNotFoundError, json.JSONDecodeError,
-            ValueError, TypeError) as exc:
-        print(f"\n✗ Validation Error: {exc}", file=sys.stderr)
-        sys.exit(1)
-    except SystemExit as exc:
-        # Propagate exit codes from argparse
-        sys.exit(exc.code if exc.code is not None else 1)
-    except Exception as exc:
-        import traceback
+        def test_config_file_override(self):
+            cfg = {
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-07-01T00:00:00Z",
+                "end_dtg":   "2025-07-02T00:00:00Z",
+                "data_source_type": "api endpoint",
+                "data_source": "https://api.example.com/data"
+            }
+            cfg_path = self._tmp_json(cfg)
+            raw = parse_input(["--config", str(cfg_path)])
+            canonical = validate_input(raw)
+            self.assertEqual(canonical["start_dtg"], "2025-07-01T00:00:00Z")
 
-        print(f"\n✗ Unexpected error: {exc}", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-        sys.exit(2)
+        # ––– OutputDoc ––––––––––––––––––––––––––––––––––––––––––––––––––
+        def test_output_doc_lifecycle(self):
+            inputs = validate_input({
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
+                "data_source_type": "file",
+                "data_source": "/tmp/conn.csv",
+            })
+            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            out.add_message("info", "Unit-test message.")
+            out.finalise()
+            self.assertIn("findings_hash", out)
+            self.assertEqual(out["status"], "UNKNOWN")  # default
 
-# --------------------------------------------------------------------------- #
-if __name__ == "__main__":  # pragma: no cover
-    _main(sys.argv[1:])
+    # --------------------------------------------------------------------- #
+    # Run tests
+    # --------------------------------------------------------------------- #
+    unittest.main(argv=[sys.argv[0]])
+
