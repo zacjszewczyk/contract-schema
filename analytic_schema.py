@@ -865,7 +865,9 @@ if __name__ == "__main__":
             out.add_message("info", "Unit-test message.")
             out.finalise()
             self.assertIn("findings_hash", out)
-            self.assertEqual(out["status"], "UNKNOWN")  # default
+            self.assertEqual(out["inputs"]["input_schema_version"], "1.0.0")            
+            self.assertEqual(out["status"], "UNKNOWN")
+
 
     # --------------------------------------------------------------------- #
     # Run tests

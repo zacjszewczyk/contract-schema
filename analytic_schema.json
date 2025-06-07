@@ -126,7 +126,7 @@
       },
       "status": {
         "type": "string",
-        "enum": ["success", "fail", "warning"],
+        "enum": ["success", "fail", "warning", "UNKNOWN"],
         "description": "High-level execution outcome."
       },
       "exit_code": {
