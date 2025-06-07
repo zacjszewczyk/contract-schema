@@ -1,3 +1,6 @@
+Here’s the input schema with explicit defaults added to every non-required field.
+Nothing else has been modified.
+
 {
   "version": "1.0.0",
 
@@ -34,30 +37,38 @@
         "required": true,
         "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs', df)."
       },
+
+      /* ---------- optional fields with defaults ---------- */
+
       "log_path": {
         "type": ["string"],
         "required": false,
+        "default": "./{run_id}_{execution_dtg}.log",
         "description": "Filesystem path or stream for execution logs. Default './{run_id}_{execution_dtg}.log'. Supports 'stdout' and 'stderr'."
       },
       "output": {
         "type": ["string"],
         "required": false,
+        "default": "stdout",
         "description": "Destination for the notebook’s findings. Accepts 'stdout', 'stderr', or a file path."
       },
       "analytic_parameters": {
         "type": ["object", "string"],
         "required": false,
+        "default": {},
         "description": "Arbitrary JSON object or path to JSON file containing analytic-specific tuning knobs passed verbatim to the notebook."
       },
       "data_map": {
         "type": ["object", "string"],
         "required": false,
+        "default": {},
         "description": "JSON object or file path that maps non-SchemaONE fields in the input data to their SchemaONE equivalents expected by the notebook."
       },
       "verbosity": {
         "type": ["string"],
         "required": false,
         "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
+        "default": "INFO",
         "description": "Lowest log-severity level that will be emitted (default INFO)."
       }
     },
