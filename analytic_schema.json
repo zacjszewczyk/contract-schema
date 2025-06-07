@@ -1,77 +1,66 @@
 {
+  "version": "1.0.0",
+
   "input": {
     "title": "Analytics Notebook Input Schema",
     "type": "object",
     "description": "Parameter block passed to a notebook when executed non-interactively.",
-    "properties": {
+    "fields": {
       "input_schema_version": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Semantic-version identifier for this input contract so runners can verify compatibility."
       },
       "start_dtg": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "format": "date-time",
         "description": "Inclusive UTC timestamp (ISO 8601) marking the first data element to analyse."
       },
       "end_dtg": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "format": "date-time",
         "description": "Exclusive UTC timestamp (ISO 8601) marking the end of the data window."
       },
       "data_source_type": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "enum": ["file", "IONIC dataset", "api endpoint", "df"],
         "description": "Transport mechanism used to retrieve data for the run."
       },
       "data_source": {
-        "oneOf": [
-            { "type": "string" },
-            { "type": "dataframe"}
-        ],
+        "type": ["string", "dataframe"],
+        "required": true,
         "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'ion:zeek_daily', 'https://api.example.com/logs', df)."
       },
       "log_path": {
-        "type": "string",
+        "type": ["string"],
+        "required": false,
         "description": "Filesystem path or stream for execution logs. Default './{run_id}_{execution_dtg}.log'. Supports 'stdout' and 'stderr'."
       },
       "output": {
-        "type": "string",
+        "type": ["string"],
+        "required": false,
         "description": "Destination for the notebook’s findings. Accepts 'stdout', 'stderr', or a file path."
       },
       "analytic_parameters": {
-        "description": "Arbitrary JSON object or path to JSON file containing analytic-specific tuning knobs passed verbatim to the notebook.",
-        "oneOf": [
-          { "type": "object" },
-          { "type": "string" }
-        ]
+        "type": ["object", "string"],
+        "required": false,
+        "description": "Arbitrary JSON object or path to JSON file containing analytic-specific tuning knobs passed verbatim to the notebook."
       },
       "data_map": {
-        "description": "JSON object or file path that maps non-SchemaONE fields in the input data to their SchemaONE equivalents expected by the notebook.",
-        "oneOf": [
-          { "type": "object" },
-          { "type": "string" }
-        ]
+        "type": ["object", "string"],
+        "required": false,
+        "description": "JSON object or file path that maps non-SchemaONE fields in the input data to their SchemaONE equivalents expected by the notebook."
       },
       "verbosity": {
-        "type": "string",
+        "type": ["string"],
+        "required": false,
         "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
         "description": "Lowest log-severity level that will be emitted (default INFO)."
       }
     },
-    "required": [
-      "input_schema_version",
-      "start_dtg",
-      "end_dtg",
-      "data_source_type",
-      "data_source"
-    ],
-    "optional": [
-      "log_path",
-      "output",
-      "analytic_parameters",
-      "data_map",
-      "verbosity"
-    ],
     "additionalProperties": false
   },
 
@@ -79,199 +68,200 @@
     "title": "Analytics Notebook Output Schema",
     "type": "object",
     "description": "Structured results emitted by the notebook after non-interactive execution.",
-    "properties": {
+    "fields": {
       "input_schema_version": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Echo of the input contract version used for this run."
       },
       "output_schema_version": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Semantic-version identifier for this output contract."
       },
       "run_id": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Globally unique identifier (UUID v4 recommended) assigned at run start."
       },
       "analytic_id": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Canonical identifier or filesystem path of the executed analytic notebook."
       },
       "analytic_name": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Human-readable title of the analytic notebook."
       },
       "analytic_version": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Semantic version of the notebook at execution time."
       },
       "run_user": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Operating-system or service account under which the notebook executed."
       },
       "run_host": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "Hostname, VM, or container ID where execution occurred."
       },
       "inputs": {
-        "$ref": "#/input",
+        "type": ["object"],
+        "required": true,
+        "schema_ref": "input",
         "description": "Verbatim copy of the input parameter object for auditability."
       },
       "input_hash": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "SHA-256 (or stronger) hash of the canonicalised inputs object proving immutability."
       },
       "input_data_hash": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "SHA-256 (or stronger) hash computed over the exact dataset supplied to the notebook."
       },
       "status": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "enum": ["success", "fail", "warning", "UNKNOWN"],
         "description": "High-level execution outcome."
       },
       "exit_code": {
-        "type": "integer",
+        "type": ["integer"],
+        "required": true,
         "description": "Process exit status (0 = success; non-zero = failure)."
       },
       "messages": {
-        "type": "array",
+        "type": ["list"],
+        "required": false,
         "description": "Ordered log entries generated during execution.",
         "items": {
-          "type": "object",
-          "properties": {
-            "timestamp": { "type": "string", "format": "date-time" },
-            "level":     { "type": "string", "enum": ["DEBUG","INFO","WARN","ERROR","FATAL"] },
-            "text":      { "type": "string" }
+          "fields": {
+            "timestamp": {
+              "type": ["string"],
+              "format": "date-time",
+              "required": true
+            },
+            "level": {
+              "type": ["string"],
+              "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
+              "required": true
+            },
+            "text": {
+              "type": ["string"],
+              "required": true
+            }
           },
-          "required": ["timestamp", "level", "text"],
-          "optional": [],
           "additionalProperties": false
         }
       },
       "records_processed": {
-        "type": "integer",
+        "type": ["integer"],
+        "required": true,
         "description": "Total number of log or event records read by the analytic."
       },
       "run_start_dtg": {
-        "type": "string",
+        "type": ["string"],
         "format": "date-time",
+        "required": true,
         "description": "UTC timestamp when execution began."
       },
       "run_end_dtg": {
-        "type": "string",
+        "type": ["string"],
         "format": "date-time",
+        "required": true,
         "description": "UTC timestamp when execution finished."
       },
       "run_duration_seconds": {
-        "type": "number",
+        "type": ["number"],
+        "required": true,
         "description": "Total wall-clock duration of the run in seconds."
       },
       "findings_hash": {
-        "type": "string",
+        "type": ["string"],
+        "required": true,
         "description": "SHA-256 (or stronger) hash of the serialised findings array."
       },
       "findings": {
-        "type": "array",
+        "type": ["list"],
+        "required": true,
         "description": "Findings generated by the analytic.",
         "items": {
-          "type": "object",
-          "properties": {
+          "fields": {
             "finding_id": {
-              "type": "string",
+              "type": ["string"],
+              "required": true,
               "description": "Unique identifier for the finding (UUID v4 recommended)."
             },
             "title": {
-              "type": "string",
+              "type": ["string"],
+              "required": true,
               "description": "Concise summary of the condition detected."
             },
             "description": {
-              "type": "string",
+              "type": ["string"],
+              "required": true,
               "description": "Detailed explanation of what was detected and why it matters."
             },
             "event_dtg": {
-              "type": "string",
+              "type": ["string"],
               "format": "date-time",
+              "required": true,
               "description": "ISO 8601-compliant UTC timestamp of the primary event that triggered the finding."
             },
             "severity": {
-              "type": "string",
-              "description": "Analyst-assessed impact level (e.g., 'low', medium', high', critical')."
+              "type": ["string"],
+              "required": true,
+              "description": "Analyst-assessed impact level (e.g., 'low', 'medium', 'high', 'critical')."
             },
             "confidence": {
-              "type": "string",
+              "type": ["string"],
+              "required": true,
               "description": "Analyst-assessed probability that the finding is valid (percentage or qualitative scale)."
             },
             "observables": {
-              "type": "array",
-              "description": "Concrete artefacts (IP addresses, hashes, usernames, etc.) associated with the finding.",
-              "items": { "type": "string" }
+              "type": ["list"],
+              "subtype": "string",
+              "required": true,
+              "description": "Concrete artefacts (IP addresses, hashes, usernames, etc.) associated with the finding."
             },
             "mitre_attack_tactics": {
-              "type": "array",
-              "description": "MITRE ATT&CK tactic identifiers linked to the finding.",
-              "items": { "type": "string" }
+              "type": ["list"],
+              "subtype": "string",
+              "required": true,
+              "description": "MITRE ATT&CK tactic identifiers linked to the finding."
             },
             "mitre_attack_techniques": {
-              "type": "array",
-              "description": "MITRE ATT&CK technique identifiers linked to the finding.",
-              "items": { "type": "string" }
+              "type": ["list"],
+              "subtype": "string",
+              "required": true,
+              "description": "MITRE ATT&CK technique identifiers linked to the finding."
             },
             "recommended_actions": {
-              "type": "string",
+              "type": ["string"],
+              "required": true,
               "description": "Guidance for immediate response or deeper investigation."
             },
             "recommended_pivots": {
-              "type": "string",
+              "type": ["string"],
+              "required": true,
               "description": "Suggested data sources or tools to pivot to for additional context."
             },
             "classification": {
-              "type": "string",
-              "description": "Marking that dictates data-handling requirements (e.g., 'U', 'CUI', etc.)."
+              "type": ["string"],
+              "required": true,
+              "description": "Marking that dictates data-handling requirements (e.g., 'U', 'CUI')."
             }
           },
-          "required": [
-            "finding_id",
-            "title",
-            "description",
-            "event_dtg",
-            "severity",
-            "confidence",
-            "observables",
-            "mitre_attack_tactics",
-            "mitre_attack_techniques",
-            "recommended_actions",
-            "recommended_pivots",
-            "classification"
-          ],
-          "optional": [],
           "additionalProperties": false
         }
       }
     },
-    "required": [
-      "input_schema_version",
-      "output_schema_version",
-      "run_id",
-      "analytic_id",
-      "analytic_name",
-      "analytic_version",
-      "run_user",
-      "run_host",
-      "inputs",
-      "input_hash",
-      "input_data_hash",
-      "status",
-      "exit_code",
-      "records_processed",
-      "run_start_dtg",
-      "run_end_dtg",
-      "run_duration_seconds",
-      "findings_hash",
-      "findings"
-    ],
-    "optional": [
-      "messages"
-    ],
     "additionalProperties": false
   }
 }
