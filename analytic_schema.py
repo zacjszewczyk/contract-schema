@@ -819,11 +819,11 @@ def _get_host() -> str:
 # =============================================================================
 if __name__ == "__main__":
     """
-    When the module is executed directly, run a comprehensive self-test suite.
-    These tests cover **all** public behaviours of the helper API
-    (`parse_input`, `validate_input`) and of `OutputDoc`.  Each test checks
-    every parameter supplied **and** confirms that *default* values are set
-    correctly whenever fields are omitted by the caller.
+    Execute a comprehensive integration-style test-suite when the module is
+    run directly (e.g. ``python analytic_schema.py``).  The suite exercises
+    every public entry-point (`parse_input`, `validate_input`, `OutputDoc`) and
+    verifies that defaults, validation errors, and helper behaviours all work
+    exactly as documented.
     """
     import unittest
     import sys
@@ -833,37 +833,48 @@ if __name__ == "__main__":
     import pandas as pd
 
     # --------------------------------------------------------------------- #
-    # Test-cases
+    # Helper utilities used by multiple test-cases                          #
     # --------------------------------------------------------------------- #
-    class AnalyticSchemaTests(unittest.TestCase):
-        """
-        Exhaustive integration tests for *analytic_schema.py*.
-
-        Workflow coverage:
-        1. CLI → parse_input → validate_input
-        2. Dict + inline-JSON dereference (`analytic_parameters`)
-        3. Dict with embedded Pandas DataFrame
-        4. --config precedence
-        5. OutputDoc lifecycle (including default-value population)
-        """
+    class _Util:
+        """Shared helpers for the test-suite."""
 
         @staticmethod
-        def _tmp_json(obj) -> Path:
+        def tmp_json(obj) -> Path:
+            """Write *obj* to a temporary ``*.json`` file and return the path."""
             tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
             Path(tmp.name).write_text(json.dumps(obj), encoding="utf-8")
             return Path(tmp.name)
 
-        # --------------------------------------------------------------- #
-        # Helper: build expected canonical dict with defaults injected    #
-        # --------------------------------------------------------------- #
-        def _with_defaults(self, base: Dict[str, Any]) -> Dict[str, Any]:
-            x = base.copy()
+        @staticmethod
+        def with_defaults(base: Dict[str, Any]) -> Dict[str, Any]:
+            """
+            Return *base* **merged** with module-level `_DEFAULTS`, mimicking
+            what `validate_input` produces after default injection.
+            """
+            merged = base.copy()
             for k, v in _DEFAULTS.items():
-                x.setdefault(k, copy.deepcopy(v))
-            return x
+                merged.setdefault(k, copy.deepcopy(v))
+            return merged
 
-        # 1) CLI round‑trip now returns dict **with defaults**
-        def test_cli_roundtrip(self):
+    # --------------------------------------------------------------------- #
+    # Test-cases                                                            #
+    # --------------------------------------------------------------------- #
+    class AnalyticSchemaTests(unittest.TestCase):
+        """
+        End-to-end tests for *analytic_schema.py* covering:
+
+        01. CLI parsing            → `parse_input`
+        02. Dict / JSON handling   → `parse_input`
+        03. Validation engine      → `validate_input`
+        04. Default injection      → `validate_input`
+        05. Output document flow   → `OutputDoc`
+        """
+
+        # ────────────────────────────────────────────────────────────────────
+        # 01  CLI round-trip
+        # ────────────────────────────────────────────────────────────────────
+        def test_01_cli_roundtrip_defaults(self):
+            """CLI → parse → validate should round-trip and inject defaults."""
             cli = (
                 "--input-schema-version 1.0.0 "
                 "--start-dtg 2025-06-01T00:00:00Z "
@@ -873,61 +884,61 @@ if __name__ == "__main__":
             )
             raw = parse_input(cli)
             canonical = validate_input(raw)
-            expected = self._with_defaults(raw)
-            self.assertDictEqual(canonical, expected)
+            self.assertDictEqual(canonical, _Util.with_defaults(raw))
 
-        # 2) Dict + JSON dereference (unchanged – defaults already handled)
-        def test_dict_with_analytic_parameters(self):
-            raw_dict = {
+        # ────────────────────────────────────────────────────────────────────
+        # 02  Dict source with inline JSON dereference
+        # ────────────────────────────────────────────────────────────────────
+        def test_02_dict_with_analytic_parameters_dereferenced(self):
+            """Stringified JSON in `analytic_parameters` must be parsed → dict."""
+            raw = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
-                "end_dtg": "2025-06-02T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
                 "data_source": "/tmp/conn.csv",
                 "analytic_parameters": '{"param_a": 123}',
             }
-            canonical = validate_input(parse_input(raw_dict))
-            self.assertEqual(canonical["analytic_parameters"], {"param_a": 123})
+            out = validate_input(parse_input(raw))
+            self.assertEqual(out["analytic_parameters"], {"param_a": 123})
 
-        # 3) DataFrame source (unchanged)
-        def test_dataframe_source(self):
+        # ────────────────────────────────────────────────────────────────────
+        # 03  DataFrame as data_source
+        # ────────────────────────────────────────────────────────────────────
+        def test_03_dataframe_data_source_passes_validation(self):
+            """A Pandas DataFrame is valid when `data_source_type=='df'`."""
             df = pd.DataFrame({"Name": ["Alice", "Bob"]})
-            raw_dict = {
+            raw = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
-                "end_dtg": "2025-06-02T00:00:00Z",
+                "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "df",
                 "data_source": df,
             }
-            canonical = validate_input(parse_input(raw_dict))
-            self.assertTrue(canonical["data_source"].equals(df))
+            out = validate_input(parse_input(raw))
+            self.assertTrue(out["data_source"].equals(df))
 
-        # 4) --config precedence – now with defaults merged in
-        def test_config_file_override(self):
+        # ────────────────────────────────────────────────────────────────────
+        # 04  --config precedence
+        # ────────────────────────────────────────────────────────────────────
+        def test_04_config_file_overrides_cli(self):
+            """`--config` JSON file should replace all other CLI flags."""
             cfg = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-07-01T00:00:00Z",
-                "end_dtg": "2025-07-02T00:00:00Z",
+                "end_dtg":   "2025-07-02T00:00:00Z",
                 "data_source_type": "api endpoint",
                 "data_source": "https://api.example.com/data",
             }
-            cfg_path = self._tmp_json(cfg)
-            raw = parse_input(["--config", str(cfg_path)])
-            canonical = validate_input(raw)
-            expected = self._with_defaults(cfg)
-            self.assertDictEqual(canonical, expected)
+            cfg_path = _Util.tmp_json(cfg)
+            out = validate_input(parse_input(["--config", str(cfg_path)]))
+            self.assertDictEqual(out, _Util.with_defaults(cfg))
 
-        # =============================
-        # 5) OutputDoc lifecycle + defaults
-        # =============================
-        def test_output_doc_defaults(self):
-            """
-            Create an OutputDoc with *minimal* user-supplied fields and verify:
-            • Required hashes present after finalise()
-            • All schema-defined defaults populated with correct values
-              (output_schema_version, analytic_id, status, exit_code, etc.)
-            • Messages list initialised and accepts entries
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 05  OutputDoc lifecycle & default population
+        # ────────────────────────────────────────────────────────────────────
+        def test_05_outputdoc_defaults_and_hashes(self):
+            """`OutputDoc.finalise` must fill meta, hashes, and default fields."""
             inputs = validate_input(
                 {
                     "input_schema_version": "1.0.0",
@@ -937,429 +948,330 @@ if __name__ == "__main__":
                     "data_source": "/tmp/conn.csv",
                 }
             )
+            doc = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            doc.add_message("INFO", "hello")
+            doc.finalise()
 
-            out = OutputDoc(input_data_hash="0" * 64, inputs=inputs)
-            out.add_message("INFO", "Initial message.")
-            out.finalise()
+            self.assertIn("input_hash",     doc)
+            self.assertIn("findings_hash",  doc)
+            self.assertEqual(doc["status"], "UNKNOWN")
+            self.assertEqual(doc["messages"][0]["level"], "INFO")
 
-            # — Mandatory hashes —
-            self.assertIn("input_hash", out)
-            self.assertIn("findings_hash", out)
-
-            # — Default fields (not explicitly set by caller) —
-            self.assertEqual(out["output_schema_version"], "UNKNOWN")
-            self.assertEqual(out["analytic_id"],  "UNKNOWN")
-            self.assertEqual(out["analytic_name"], "UNKNOWN")
-            self.assertEqual(out["analytic_version"], "UNKNOWN")
-            self.assertEqual(out["status"], "UNKNOWN")
-            self.assertEqual(out["exit_code"], -1)
-            self.assertEqual(out["records_processed"], 0)
-
-            # — Auto meta —
-            self.assertIn("run_id", out)
-            self.assertIn("run_user", out)
-            self.assertIn("run_host", out)
-            self.assertIn("run_start_dtg", out)
-            self.assertIn("run_end_dtg", out)
-            self.assertGreater(out["run_duration_seconds"], 0)
-
-            # — Messages list correctly initialised —
-            self.assertEqual(len(out["messages"]), 1)
-            msg = out["messages"][0]
-            self.assertIn("timestamp", msg)
-            self.assertEqual(msg["level"], "INFO")
-            self.assertEqual(msg["text"], "Initial message.")
-
-        # =============================
-        # 6) Missing required field
-        # =============================
-        def test_missing_required_field(self):
-            """
-            Omitting any **required** top-level parameter must raise
-            `SchemaError`.  Here we drop `data_source` and expect failure.
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 06  Missing required field
+        # ────────────────────────────────────────────────────────────────────
+        def test_06_validate_missing_required_field_raises(self):
+            """Omitting `data_source` must raise `SchemaError`."""
             invalid = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                # data_source  ← deliberately omitted
             }
             with self.assertRaises(SchemaError):
                 validate_input(parse_input(invalid))
 
-        # =============================
-        # 7) Invalid enum value
-        # =============================
-        def test_invalid_enum_value(self):
-            """
-            Supplying a value outside an `enum` must raise `SchemaError`.
-            `data_source_type='ftp'` is not allowed by the contract.
-            """
-            invalid = {
+        # ────────────────────────────────────────────────────────────────────
+        # 07  Enum value outside allowed set
+        # ────────────────────────────────────────────────────────────────────
+        def test_07_invalid_enum_value_detected(self):
+            """`data_source_type='ftp'` violates the enum constraint."""
+            bad = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
-                "data_source_type": "ftp",       # ← invalid
-                "data_source": "/tmp/conn.csv",
+                "data_source_type": "ftp",
+                "data_source": "/tmp/x",
             }
             with self.assertRaises(SchemaError):
-                validate_input(parse_input(invalid))
+                validate_input(parse_input(bad))
 
-        # =============================
-        # 8) Invalid date-time format
-        # =============================
-        def test_invalid_datetime_format(self):
-            """
-            Timestamps must be full ISO-8601 with time + zone.  A date-only
-            string should fail validation.
-            """
-            invalid = {
+        # ────────────────────────────────────────────────────────────────────
+        # 08  Invalid ISO-8601 timestamp
+        # ────────────────────────────────────────────────────────────────────
+        def test_08_invalid_datetime_format_rejected(self):
+            """Date-only string must fail the `format:"date-time"` check."""
+            bad = {
                 "input_schema_version": "1.0.0",
-                "start_dtg": "2025-06-01",                # ← bad format
+                "start_dtg": "2025-06-01",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
+                "data_source": "/tmp/x",
             }
             with self.assertRaises(SchemaError):
-                validate_input(parse_input(invalid))
+                validate_input(parse_input(bad))
 
-        # =============================
-        # 9) File-path dereference
-        # =============================
-        def test_analytic_parameters_file_deref(self):
-            """
-            `analytic_parameters` supplied as a *file path* must be
-            auto-loaded into a dict during validation.
-            """
-            tmp_file = self._tmp_json({"param_x": 42})
+        # ────────────────────────────────────────────────────────────────────
+        # 09  File-path dereference for analytic_parameters
+        # ────────────────────────────────────────────────────────────────────
+        def test_09_analytic_parameters_external_file_loaded(self):
+            """Passing a JSON file path in `analytic_parameters` must load → dict."""
+            tmp = _Util.tmp_json({"p": 1})
             raw = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-                "analytic_parameters": str(tmp_file),
+                "data_source": "/tmp/x",
+                "analytic_parameters": str(tmp),
             }
-            canonical = validate_input(parse_input(raw))
-            self.assertEqual(canonical["analytic_parameters"], {"param_x": 42})
+            out = validate_input(parse_input(raw))
+            self.assertEqual(out["analytic_parameters"], {"p": 1})
 
-        # =============================
-        # 10) AdditionalProperties check
-        # =============================
-        def test_unknown_field_rejected(self):
-            """
-            The schema sets `"additionalProperties": false`; any extraneous
-            field should trigger `SchemaError`.
-            """
-            invalid = {
+        # ────────────────────────────────────────────────────────────────────
+        # 10  additionalProperties=false enforcement
+        # ────────────────────────────────────────────────────────────────────
+        def test_10_unknown_top_level_field_rejected(self):
+            """Extraneous field should trigger `SchemaError`."""
+            bad = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-                "unexpected_field": "oops",      # ← not in schema
+                "data_source": "/tmp/x",
+                "oops": True,
             }
             with self.assertRaises(SchemaError):
-                validate_input(parse_input(invalid))
+                validate_input(parse_input(bad))
 
-        # =============================
-        # 11) Invalid JSON in file path
-        # =============================
-        def test_analytic_parameters_invalid_json_file(self):
-            """
-            A file path supplied for `analytic_parameters` that is **not**
-            valid JSON must raise `json.JSONDecodeError`.
-            """
-            bad_file = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
-            Path(bad_file.name).write_text("NOT-JSON", encoding="utf-8")
-
-            raw = {
+        # ────────────────────────────────────────────────────────────────────
+        # 11  Invalid JSON in external file
+        # ────────────────────────────────────────────────────────────────────
+        def test_11_invalid_json_file_raises_decode_error(self):
+            """Non-JSON content in file path must raise `json.JSONDecodeError`."""
+            tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
+            Path(tmp.name).write_text("NOT_JSON", encoding="utf-8")
+            bad = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-                "analytic_parameters": bad_file.name,
+                "data_source": "/tmp/x",
+                "analytic_parameters": tmp.name,
             }
             with self.assertRaises(json.JSONDecodeError):
-                validate_input(parse_input(raw))
+                validate_input(parse_input(bad))
 
-        # =============================
-        # 12) Plain-string analytic_parameters
-        # =============================
-        def test_analytic_parameters_plain_string(self):
-            """
-            If `analytic_parameters` is an arbitrary string that is **neither**
-            a path nor valid JSON, it should pass unchanged (schema allows
-            string via `oneOf`).
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 12  Plain-string analytic_parameters passes
+        # ────────────────────────────────────────────────────────────────────
+        def test_12_plain_string_analytic_parameters_valid(self):
+            """Arbitrary string is allowed by `oneOf` branch."""
             raw = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-                "analytic_parameters": "just-a-flag",   # ← arbitrary string
+                "data_source": "/tmp/x",
+                "analytic_parameters": "flag",
             }
-            canonical = validate_input(parse_input(raw))
-            self.assertEqual(canonical["analytic_parameters"], "just-a-flag")
+            out = validate_input(parse_input(raw))
+            self.assertEqual(out["analytic_parameters"], "flag")
 
-        # =============================
-        # 13) Verbosity enum case-sensitivity
-        # =============================
-        def test_verbosity_case_sensitive(self):
-            """
-            The `verbosity` enum is uppercase in the contract.  Lower-case
-            should fail validation.
-            """
-            invalid = {
+        # ────────────────────────────────────────────────────────────────────
+        # 13  Verbosity enum case sensitivity
+        # ────────────────────────────────────────────────────────────────────
+        def test_13_lowercase_enum_value_rejected(self):
+            """Enum field `verbosity` is case-sensitive."""
+            bad = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-                "verbosity": "info",   # ← invalid casing
+                "data_source": "/tmp/x",
+                "verbosity": "info",
             }
             with self.assertRaises(SchemaError):
-                validate_input(parse_input(invalid))
+                validate_input(parse_input(bad))
 
-        # =============================
-        # 14) OutputDoc without inputs
-        # =============================
-        def test_outputdoc_missing_inputs(self):
-            """
-            Calling `finalise()` without an `inputs` dict must raise
-            `SchemaError`.
-            """
-            out = OutputDoc(input_data_hash="0" * 64)
+        # ────────────────────────────────────────────────────────────────────
+        # 14  OutputDoc without inputs
+        # ────────────────────────────────────────────────────────────────────
+        def test_14_outputdoc_finalise_without_inputs_raises(self):
+            """`finalise()` must fail if `inputs` missing."""
             with self.assertRaises(SchemaError):
-                out.finalise()
+                OutputDoc(input_data_hash="0"*64).finalise()
 
-        # =============================
-        # 15) Invalid log level in add_message
-        # =============================
-        def test_outputdoc_invalid_log_level(self):
-            """`add_message()` with an unknown severity should raise `ValueError`."""
+        # ────────────────────────────────────────────────────────────────────
+        # 15  add_message invalid log level
+        # ────────────────────────────────────────────────────────────────────
+        def test_15_invalid_log_level_raises(self):
+            """Unknown severity string should raise `ValueError`."""
             inputs = validate_input(
                 {
                     "input_schema_version": "1.0.0",
                     "start_dtg": "2025-06-01T00:00:00Z",
                     "end_dtg":   "2025-06-02T00:00:00Z",
                     "data_source_type": "file",
-                    "data_source": "/tmp/conn.csv",
+                    "data_source": "/tmp/x",
                 }
             )
-            out = OutputDoc(input_data_hash="0" * 64, inputs=inputs)
+            doc = OutputDoc(input_data_hash="0"*64, inputs=inputs)
             with self.assertRaises(ValueError):
-                out.add_message("TRACE", "should fail")   # not in enum
+                doc.add_message("TRACE", "msg")
 
-        # =============================
-        # 16) Invalid findings structure
-        # =============================
-        def test_outputdoc_invalid_findings_structure(self):
-            """
-            Findings array items must match the nested object schema.  A
-            malformed finding should trigger `SchemaError` during `finalise()`.
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 16  Invalid findings structure
+        # ────────────────────────────────────────────────────────────────────
+        def test_16_malformed_finding_triggers_schema_error(self):
+            """Bad finding dict must be caught by `finalise()` validation."""
             inputs = validate_input(
                 {
                     "input_schema_version": "1.0.0",
                     "start_dtg": "2025-06-01T00:00:00Z",
                     "end_dtg":   "2025-06-02T00:00:00Z",
                     "data_source_type": "file",
-                    "data_source": "/tmp/conn.csv",
+                    "data_source": "/tmp/x",
                 }
             )
-            bad_finding = {"foo": "bar"}  # missing all required fields
-            out = OutputDoc(input_data_hash="0"*64, inputs=inputs, findings=[bad_finding])
+            doc = OutputDoc(input_data_hash="0"*64,
+                            inputs=inputs,
+                            findings=[{"foo": "bar"}])
             with self.assertRaises(SchemaError):
-                out.finalise()
+                doc.finalise()
 
-        # =============================
-        # 17) Non-string --config value
-        # =============================
-        def test_config_flag_non_string(self):
-            """
-            If the raw param dict contains a non-string `config` value,
-            `validate_input` must raise `TypeError`.
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 17  Non-string --config flag
+        # ────────────────────────────────────────────────────────────────────
+        def test_17_non_string_config_flag_type_error(self):
+            """Non-string `config` value should raise `TypeError`."""
             with self.assertRaises(TypeError):
                 validate_input({"config": 123})
 
-        # =============================
-        # 18) Unknown CLI argument
-        # =============================
-        def test_cli_unknown_argument(self):
-            """An unrecognised CLI flag should raise `ValueError`."""
+        # ────────────────────────────────────────────────────────────────────
+        # 18  Unknown CLI argument
+        # ────────────────────────────────────────────────────────────────────
+        def test_18_unknown_cli_flag_detected(self):
+            """Unrecognised CLI flag should raise `ValueError`."""
             with self.assertRaises(ValueError):
-                parse_input("--bogus-flag true")
+                parse_input("--bad-flag 1")
 
-        # =============================
-        # 19) data_source wrong Python type
-        # =============================
-        def test_data_source_invalid_python_type(self):
-            """
-            Supplying a non-string / non-DataFrame object for `data_source`
-            must violate the `oneOf` and raise `SchemaError`.
-            """
-            invalid = {
+        # ────────────────────────────────────────────────────────────────────
+        # 19  Wrong Python type for data_source
+        # ────────────────────────────────────────────────────────────────────
+        def test_19_data_source_wrong_type_schema_error(self):
+            """`data_source` must be string or DataFrame as per `oneOf`."""
+            bad = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "df",
-                "data_source": 123,   # ← not string, not DataFrame
+                "data_source": 999,
             }
             with self.assertRaises(SchemaError):
-                validate_input(parse_input(invalid))
+                validate_input(parse_input(bad))
 
-        # =============================
-        # 20) data_map file dereference
-        # =============================
-        def test_data_map_file_deref(self):
-            """
-            `data_map` supplied as a JSON file path must be auto-loaded into a
-            dict during validation.
-            """
-            tmp_file = self._tmp_json({"src_ip": "source_ip", "dst_ip": "dest_ip"})
+        # ────────────────────────────────────────────────────────────────────
+        # 20  data_map file dereference
+        # ────────────────────────────────────────────────────────────────────
+        def test_20_data_map_external_file_loaded(self):
+            """External JSON file in `data_map` should be auto-loaded."""
+            tmp = _Util.tmp_json({"a": 1})
             raw = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
-                "data_map": str(tmp_file),
+                "data_source": "/tmp/x",
+                "data_map": str(tmp),
             }
-            canonical = validate_input(parse_input(raw))
-            self.assertEqual(
-                canonical["data_map"],
-                {"src_ip": "source_ip", "dst_ip": "dest_ip"},
-            )
+            out = validate_input(parse_input(raw))
+            self.assertEqual(out["data_map"], {"a": 1})
 
-        # =============================
-        # 21) @response-file CLI syntax
-        # =============================
-        def test_cli_response_file(self):
-            """
-            The ArgumentParser supports GNU ‘@file’ response files.  Ensure
-            `parse_input` correctly expands an @-prefixed filename where each
-            *token* is written on a separate line.
-
-            (Using one token per line avoids the edge-case where argparse
-            treats “flag + value” as a single argument.)
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 21  @response-file syntax
+        # ────────────────────────────────────────────────────────────────────
+        def test_21_at_response_file_expansion(self):
+            """Argparse should expand @file with one token per line."""
             tokens = [
-                "--input-schema-version",
-                "1.0.0",
-                "--start-dtg",
-                "2025-06-01T00:00:00Z",
-                "--end-dtg",
-                "2025-06-02T00:00:00Z",
-                "--data-source-type",
-                "file",
-                "--data-source",
-                "/tmp/conn.csv",
+                "--input-schema-version", "1.0.0",
+                "--start-dtg", "2025-06-01T00:00:00Z",
+                "--end-dtg",   "2025-06-02T00:00:00Z",
+                "--data-source-type", "file",
+                "--data-source", "/tmp/x",
             ]
-            tmp = tempfile.NamedTemporaryFile(
-                delete=False, mode="w", encoding="utf-8"
-            )
-            tmp.write("\n".join(tokens))
-            tmp.close()
+            tmp = tempfile.NamedTemporaryFile(delete=False, mode="w", encoding="utf-8")
+            tmp.write("\n".join(tokens)); tmp.close()
+            out = validate_input(parse_input(f"@{tmp.name}"))
+            self.assertEqual(out["data_source_type"], "file")
 
-            canonical = validate_input(parse_input(f"@{tmp.name}"))
-            self.assertEqual(canonical["data_source_type"], "file")
-            self.assertEqual(canonical["data_source"], "/tmp/conn.csv")
-
-        # =============================
-        # 22) Valid verbosity enum value
-        # =============================
-        def test_verbosity_valid_value(self):
-            """Upper-case verbosity values present in the enum must validate."""
+        # ────────────────────────────────────────────────────────────────────
+        # 22  Valid verbosity passes
+        # ────────────────────────────────────────────────────────────────────
+        def test_22_valid_enum_value_accepts(self):
+            """Upper-case `verbosity` value must validate."""
             raw = {
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
                 "end_dtg":   "2025-06-02T00:00:00Z",
                 "data_source_type": "file",
-                "data_source": "/tmp/conn.csv",
+                "data_source": "/tmp/x",
                 "verbosity": "DEBUG",
             }
-            canonical = validate_input(parse_input(raw))
-            self.assertEqual(canonical["verbosity"], "DEBUG")
+            self.assertEqual(validate_input(parse_input(raw))["verbosity"], "DEBUG")
 
-        # =============================
-        # 23) Message timestamp & level
-        # =============================
-        def test_outputdoc_message_iso_timestamp(self):
-            """
-            `add_message` must embed ISO-8601 timestamps and a level from the
-            allowed enum.
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 23  Message timestamp & level format
+        # ────────────────────────────────────────────────────────────────────
+        def test_23_outputdoc_message_fields_format(self):
+            """Timestamp must be ISO-8601 and level from enum."""
             inputs = validate_input(
                 {
                     "input_schema_version": "1.0.0",
                     "start_dtg": "2025-06-01T00:00:00Z",
                     "end_dtg":   "2025-06-02T00:00:00Z",
                     "data_source_type": "file",
-                    "data_source": "/tmp/conn.csv",
+                    "data_source": "/tmp/x",
                 }
             )
-            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
-            out.add_message("WARN", "something happened")
-            ts = out["messages"][0]["timestamp"]
-            self.assertRegex(ts, r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
-            self.assertEqual(out["messages"][0]["level"], "WARN")
+            doc = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            doc.add_message("WARN", "msg")
+            msg = doc["messages"][0]
+            self.assertRegex(msg["timestamp"], r"^\d{4}-\d{2}-\d{2}T")
+            self.assertEqual(msg["level"], "WARN")
 
-        # =============================
-        # 24) Multiple messages append
-        # =============================
-        def test_outputdoc_multiple_messages(self):
-            """Consecutive `add_message` calls should append to the list."""
+        # ────────────────────────────────────────────────────────────────────
+        # 24  Multiple add_message calls append
+        # ────────────────────────────────────────────────────────────────────
+        def test_24_outputdoc_multiple_messages_append(self):
+            """Two consecutive `add_message` calls should produce two entries."""
             inputs = validate_input(
                 {
                     "input_schema_version": "1.0.0",
                     "start_dtg": "2025-06-01T00:00:00Z",
                     "end_dtg":   "2025-06-02T00:00:00Z",
                     "data_source_type": "file",
-                    "data_source": "/tmp/conn.csv",
+                    "data_source": "/tmp/x",
                 }
             )
-            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
-            out.add_message("INFO", "first")
-            out.add_message("ERROR", "second")
-            self.assertEqual([m["text"] for m in out["messages"]], ["first", "second"])
+            doc = OutputDoc(input_data_hash="0"*64, inputs=inputs)
+            doc.add_message("INFO", "a"); doc.add_message("ERROR", "b")
+            self.assertEqual([m["text"] for m in doc["messages"]], ["a", "b"])
 
-        # =============================
-        # 25) save() before finalise() must fail
-        # =============================
-        def test_outputdoc_save_without_finalise(self):
-            """
-            Calling `save()` prior to `finalise()` must now raise
-            `RuntimeError` to prevent incomplete documents from being written.
-            """
+        # ────────────────────────────────────────────────────────────────────
+        # 25  save() before finalise()
+        # ────────────────────────────────────────────────────────────────────
+        def test_25_save_before_finalise_runtime_error(self):
+            """Calling `save()` without `finalise()` must raise `RuntimeError`."""
             inputs = validate_input(
                 {
                     "input_schema_version": "1.0.0",
                     "start_dtg": "2025-06-01T00:00:00Z",
                     "end_dtg":   "2025-06-02T00:00:00Z",
                     "data_source_type": "file",
-                    "data_source": "/tmp/conn.csv",
+                    "data_source": "/tmp/x",
                 }
             )
-            out = OutputDoc(input_data_hash="0"*64, inputs=inputs)
-            tmp_path = Path(tempfile.NamedTemporaryFile(delete=False, suffix=".json").name)
+            doc = OutputDoc(input_data_hash="0"*64, inputs=inputs)
             with self.assertRaises(RuntimeError):
-                out.save(tmp_path)
+                doc.save(Path(tempfile.NamedTemporaryFile().name))
 
-        # =============================
-        # 26) OutputDoc created with a dataframe as the data source
-        # =============================
-        
-        def test_outputdoc_save_with_dataframe_input(self):
-            """
-            Ensure `save()` works correctly when the input contains a DataFrame,
-            which is not natively JSON-serialisable.
-            """
-            df = pd.DataFrame({"col1": [1, 2]})
+        # ────────────────────────────────────────────────────────────────────
+        # 26  save() with DataFrame in inputs
+        # ────────────────────────────────────────────────────────────────────
+        def test_26_save_with_dataframe_succeeds(self):
+            """`save()` must succeed when `inputs` contains a DataFrame."""
+            df = pd.DataFrame({"col": [1, 2]})
             inputs = validate_input({
                 "input_schema_version": "1.0.0",
                 "start_dtg": "2025-06-01T00:00:00Z",
@@ -1367,83 +1279,30 @@ if __name__ == "__main__":
                 "data_source_type": "df",
                 "data_source": df,
             })
-        
-            out = OutputDoc(input_data_hash="a"*64, inputs=inputs)
-            out.finalise()
-        
-            tmp_path = self._tmp_json({}) # create a temp file
-        
-            try:
-                out.save(tmp_path) # This should NOT raise a TypeError
-        
-                # Optional: verify the content of the saved file
-                saved_data = json.loads(tmp_path.read_text())
-                self.assertIsInstance(saved_data["inputs"]["data_source"], dict)
-                self.assertIn("__dataframe_sha256__", saved_data["inputs"]["data_source"])
-        
-            except TypeError as e:
-                self.fail(f"OutputDoc.save() raised an unexpected TypeError: {e}")
-            finally:
-                tmp_path.unlink() # clean up
+            doc = OutputDoc(input_data_hash="a"*64, inputs=inputs); doc.finalise()
+            tmp = _Util.tmp_json({})
+            doc.save(tmp)
+            saved = json.loads(tmp.read_text())
+            self.assertIn("__dataframe_sha256__", saved["inputs"]["data_source"])
+            tmp.unlink()
 
-        # =============================
-        # 27) Test the hash method
-        # =============================
-        def test_outputdoc_hash_method(self):
-            """
-            Dedicated test for OutputDoc._hash to verify determinism and
-            sensitivity to changes, especially with embedded DataFrames.
-            """
-            # 1. --- Baseline Data ---
-            # Create a base DataFrame and a parent object containing it.
-            base_df = pd.DataFrame({'id': [1, 2], 'name': ['A', 'B']})
-            base_obj = {
-                "report_id": "rep-001",
-                "source_df": base_df,
-                "parameters": {"threshold": 42}
-            }
+        # ────────────────────────────────────────────────────────────────────
+        # 27  _hash behaviour with DataFrames
+        # ────────────────────────────────────────────────────────────────────
+        def test_27_hash_determinism_and_sensitivity(self):
+            """`_hash` must be deterministic and sensitive to data changes."""
+            df = pd.DataFrame({"v": [1, 2]})
+            base = {"df": df, "p": 1}
+            h1 = OutputDoc._hash(base); h2 = OutputDoc._hash(base)
+            self.assertEqual(h1, h2, "Hash must be deterministic.")
 
-            # 2. --- Test for Determinism ---
-            # Hashing the exact same object twice must produce the same hash.
-            hash1 = OutputDoc._hash(base_obj)
-            hash2 = OutputDoc._hash(base_obj)
-            self.assertEqual(hash1, hash2, "Hashing the same object should be deterministic.")
-
-            # 3. --- Test Sensitivity to DataFrame CONTENT Change ---
-            # A minor change to the DataFrame's data must result in a different hash.
-            content_changed_df = base_df.copy()
-            content_changed_df.loc[0, 'name'] = 'Z' # Change one value
-            content_changed_obj = {
-                "report_id": "rep-001",
-                "source_df": content_changed_df,
-                "parameters": {"threshold": 42}
-            }
-            hash3 = OutputDoc._hash(content_changed_obj)
-            self.assertNotEqual(hash1, hash3, "Changing DataFrame content must alter the final hash.")
-
-            # 4. --- Test Sensitivity to DataFrame STRUCTURE Change ---
-            # A change to the DataFrame's structure (e.g., column name) must change the hash.
-            structure_changed_df = base_df.copy()
-            structure_changed_df.rename(columns={'id': 'record_id'}, inplace=True)
-            structure_changed_obj = {
-                "report_id": "rep-001",
-                "source_df": structure_changed_df,
-                "parameters": {"threshold": 42}
-            }
-            hash4 = OutputDoc._hash(structure_changed_obj)
-            self.assertNotEqual(hash1, hash4, "Changing DataFrame structure must alter the final hash.")
-
-            # 5. --- Test Sensitivity to NON-DataFrame Data Change ---
-            # A change to other data in the object must also change the hash.
-            other_data_changed_obj = {
-                "report_id": "rep-001",
-                "source_df": base_df,
-                "parameters": {"threshold": 99} # Change a parameter
-            }
-            hash5 = OutputDoc._hash(other_data_changed_obj)
-            self.assertNotEqual(hash1, hash5, "Changing non-DataFrame data must alter the final hash.")
+            df2 = df.copy(); df2.loc[0, "v"] = 99
+            self.assertNotEqual(h1, OutputDoc._hash({"df": df2, "p": 1}),
+                                "Changing DF content must change hash.")
+            self.assertNotEqual(h1, OutputDoc._hash({"df": df, "p": 2}),
+                                "Changing non-DF field must change hash.")
 
     # --------------------------------------------------------------------- #
-    # Run the suite
+    # Run the suite with named output                                       #
     # --------------------------------------------------------------------- #
     unittest.main(argv=[sys.argv[0]], verbosity=2)
