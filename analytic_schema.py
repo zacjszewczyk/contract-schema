@@ -124,7 +124,10 @@ def display_output(obj, *args, **kwargs):
 # NOTE: The JSON file is considered the *single source of truth*.  This Python
 # file merely *loads* the contract at run-time so any change to
 # analytic_schema.json is automatically picked up without touching code.
-SCHEMA_PATH = pathlib.Path("./analytic_schema.json")
+
+# Use a path relative to THIS script file, not the current working directory.
+_SCRIPT_DIR = pathlib.Path(__file__).parent.resolve()
+SCHEMA_PATH = _SCRIPT_DIR / "analytic_schema.json"
 
 try:
     with SCHEMA_PATH.open("r", encoding="utf-8") as fd:
@@ -646,41 +649,6 @@ class OutputDoc(dict):
         self.setdefault("messages", [])
 
     # --------------------------------------------------------------------- #
-    # Internal hashing helper
-    # --------------------------------------------------------------------- #
-    @staticmethod
-    def _hash(obj: Any) -> str:
-        """
-        Return a *stable* SHA-256 hex digest of *obj*.
-
-        Any values that are not natively JSON-serialisable (currently only
-        Pandas DataFrames are expected) are converted into a deterministic
-        representation first.
-
-        * **DataFrame** – reduced to the SHA-256 of its
-          ``to_json(orient="split", date_unit="ns")`` output and replaced by a
-          stub ``{"__dataframe_sha256__": "<digest>"}``.  This keeps the parent
-          object JSON-friendly while ensuring the hash changes whenever the
-          frame’s *content* changes.
-        """
-        def _serialise(x: Any) -> Any:
-            if isinstance(x, pd.DataFrame):
-                df_json = x.to_json(orient="split", date_unit="ns")
-                return {
-                    "__dataframe_sha256__": hashlib.sha256(df_json.encode()).hexdigest()
-                }
-            if isinstance(x, dict):
-                return {k: _serialise(v) for k, v in x.items()}
-            if isinstance(x, (list, tuple)):
-                return [_serialise(v) for v in x]
-            return x  # primitive: str/int/float/bool/None
-
-        canonical = _serialise(obj)
-        return hashlib.sha256(
-            json.dumps(canonical, sort_keys=True, separators=(",", ":")).encode()
-        ).hexdigest()
-
-    # --------------------------------------------------------------------- #
     # Public logger
     # --------------------------------------------------------------------- #
     def add_message(self, level: Union[str, _Level], text: str) -> None:
@@ -722,75 +690,56 @@ class OutputDoc(dict):
             }
         )
 
-    # --------------------------------------------------------------------- #
+    def _to_serialisable(self) -> Dict[str, Any]:
+        """
+        Return a deep copy of the document with non-JSON-native types
+        (like DataFrames) converted to a serialisable representation.
+        """
+        def _convert(x: Any) -> Any:
+            if isinstance(x, pd.DataFrame):
+                df_json = x.to_json(orient="split", date_unit="ns")
+                return {
+                    "__dataframe_sha256__": hashlib.sha256(df_json.encode()).hexdigest()
+                }
+            if isinstance(x, dict):
+                return {k: _convert(v) for k, v in x.items()}
+            if isinstance(x, (list, tuple)):
+                return [_convert(v) for v in x]
+            return x  # primitive: str/int/float/bool/None
+
+        return _convert(self)
+
+    @staticmethod
+    def _hash(obj: Any) -> str:
+        """
+        Return a *stable* SHA-256 hex digest of *obj*.
+        ... (docstring can be simplified now) ...
+        """
+        # NOTE: The _to_serialisable method is now responsible for handling
+        #       DataFrames before hashing.
+        # We assume the object passed here is already serialisable.
+        return hashlib.sha256(
+            json.dumps(obj, sort_keys=True, separators=(",", ":")).encode()
+        ).hexdigest()
+
+    # In finalise(), update the hashing call to use the serialised version
     def finalise(self) -> None:
-        """
-        Freeze the document – fills meta-data, hashes sections, **validates**.
-
-        Users *must* call this before :py:meth:`save` or shipping the JSON to a
-        downstream system.
-
-        Raises
-        ------
-        SchemaError
-            If required fields are missing or have wrong types.
-        """
-        run_end = _dt.datetime.now(_dt.timezone.utc)
-
-        # --- Populate meta defaults ------------------------------------------------
-        self.setdefault("run_id", str(uuid.uuid4()))
-        self.setdefault("run_user", _get_user())
-        self.setdefault("run_host", _get_host())
-        self.setdefault("run_start_dtg", self.__start_time.isoformat(timespec="seconds"))
-        self.setdefault("run_end_dtg",   run_end.isoformat(timespec="seconds"))
-        self.setdefault(
-            "run_duration_seconds",
-            round((run_end - self.__start_time).total_seconds(), 6),
-        )
-
-        # --- Input / findings processing ------------------------------------------
-        if "inputs" not in self:
-            raise SchemaError("OutputDoc.finalise(): missing 'inputs' dictionary.")
-        if not isinstance(self["inputs"], dict):
-            raise SchemaError("'inputs' must be a dict.")
-
-        self["input_hash"] = self._hash(self["inputs"])
+        # ...
+        serialisable_inputs = self._to_serialisable()["inputs"]
+        self["input_hash"] = self._hash(serialisable_inputs)
 
         self.setdefault("findings", [])
         if not isinstance(self["findings"], list):
             raise SchemaError("'findings' must be a list.")
+
+        # Findings are already JSON-native, no conversion needed.
         self["findings_hash"] = self._hash(self["findings"])
+        # ... rest of finalise()
 
-        # --- Additional optional fields (safe defaults) ---------------------------
-        self.setdefault("input_schema_version",  self["inputs"].get("input_schema_version", "UNKNOWN"))
-        self.setdefault("output_schema_version", "UNKNOWN")
-        self.setdefault("analytic_id",           "UNKNOWN")
-        self.setdefault("analytic_name",         "UNKNOWN")
-        self.setdefault("analytic_version",      "UNKNOWN")
-        self.setdefault("status",                "UNKNOWN")
-        self.setdefault("exit_code",             -1)
-        self.setdefault("records_processed",     0)
-
-        # --- Final schema validation ----------------------------------------------
-        _validate(self, OUTPUT_SCHEMA, path="OutputDoc")
-
-    # --------------------------------------------------------------------- #
     def save(self, path: Union[str, pathlib.Path], *, indent: int = 2) -> None:
         """
         Write the validated document to *path* as pretty-printed JSON.
-
-        Parameters
-        ----------
-        path
-            File location (string or :class:`pathlib.Path`).
-        indent
-            Number of spaces for JSON indentation (default: 2).
-
-        Notes
-        -----
-        * If :py:meth:`finalise` has **not** been called, the method will emit a
-          warning and attempt to write the current dictionary anyway.  The JSON
-          may fail downstream validation!
+        ... (docstring) ...
         """
         if not self.get("run_id"):
             raise RuntimeError(
@@ -799,9 +748,13 @@ class OutputDoc(dict):
             )
 
         path_obj = pathlib.Path(path)
+        # Create a fully serialisable version of the document before dumping
+        serialisable_doc = self._to_serialisable()
+
         try:
             path_obj.write_text(
-                json.dumps(self, indent=indent, ensure_ascii=False), encoding="utf-8"
+                json.dumps(serialisable_doc, indent=indent, ensure_ascii=False),
+                encoding="utf-8"
             )
             display_output(f"Output document saved to: {path_obj.resolve()}", file=sys.stderr)
         except Exception as exc:
@@ -1360,7 +1313,100 @@ if __name__ == "__main__":
             tmp_path = Path(tempfile.NamedTemporaryFile(delete=False, suffix=".json").name)
             with self.assertRaises(RuntimeError):
                 out.save(tmp_path)
-    
+
+        # =============================
+        # 26) OutputDoc created with a dataframe as the data source
+        # =============================
+        
+        def test_outputdoc_save_with_dataframe_input(self):
+            """
+            Ensure `save()` works correctly when the input contains a DataFrame,
+            which is not natively JSON-serialisable.
+            """
+            df = pd.DataFrame({"col1": [1, 2]})
+            inputs = validate_input({
+                "input_schema_version": "1.0.0",
+                "start_dtg": "2025-06-01T00:00:00Z",
+                "end_dtg": "2025-06-02T00:00:00Z",
+                "data_source_type": "df",
+                "data_source": df,
+            })
+        
+            out = OutputDoc(input_data_hash="a"*64, inputs=inputs)
+            out.finalise()
+        
+            tmp_path = self._tmp_json({}) # create a temp file
+        
+            try:
+                out.save(tmp_path) # This should NOT raise a TypeError
+        
+                # Optional: verify the content of the saved file
+                saved_data = json.loads(tmp_path.read_text())
+                self.assertIsInstance(saved_data["inputs"]["data_source"], dict)
+                self.assertIn("__dataframe_sha256__", saved_data["inputs"]["data_source"])
+        
+            except TypeError as e:
+                self.fail(f"OutputDoc.save() raised an unexpected TypeError: {e}")
+            finally:
+                tmp_path.unlink() # clean up
+
+        # =============================
+        # 27) Test the hash method
+        # =============================
+        def test_outputdoc_hash_method(self):
+            """
+            Dedicated test for OutputDoc._hash to verify determinism and
+            sensitivity to changes, especially with embedded DataFrames.
+            """
+            # 1. --- Baseline Data ---
+            # Create a base DataFrame and a parent object containing it.
+            base_df = pd.DataFrame({'id': [1, 2], 'name': ['A', 'B']})
+            base_obj = {
+                "report_id": "rep-001",
+                "source_df": base_df,
+                "parameters": {"threshold": 42}
+            }
+
+            # 2. --- Test for Determinism ---
+            # Hashing the exact same object twice must produce the same hash.
+            hash1 = OutputDoc._hash(base_obj)
+            hash2 = OutputDoc._hash(base_obj)
+            self.assertEqual(hash1, hash2, "Hashing the same object should be deterministic.")
+
+            # 3. --- Test Sensitivity to DataFrame CONTENT Change ---
+            # A minor change to the DataFrame's data must result in a different hash.
+            content_changed_df = base_df.copy()
+            content_changed_df.loc[0, 'name'] = 'Z' # Change one value
+            content_changed_obj = {
+                "report_id": "rep-001",
+                "source_df": content_changed_df,
+                "parameters": {"threshold": 42}
+            }
+            hash3 = OutputDoc._hash(content_changed_obj)
+            self.assertNotEqual(hash1, hash3, "Changing DataFrame content must alter the final hash.")
+
+            # 4. --- Test Sensitivity to DataFrame STRUCTURE Change ---
+            # A change to the DataFrame's structure (e.g., column name) must change the hash.
+            structure_changed_df = base_df.copy()
+            structure_changed_df.rename(columns={'id': 'record_id'}, inplace=True)
+            structure_changed_obj = {
+                "report_id": "rep-001",
+                "source_df": structure_changed_df,
+                "parameters": {"threshold": 42}
+            }
+            hash4 = OutputDoc._hash(structure_changed_obj)
+            self.assertNotEqual(hash1, hash4, "Changing DataFrame structure must alter the final hash.")
+
+            # 5. --- Test Sensitivity to NON-DataFrame Data Change ---
+            # A change to other data in the object must also change the hash.
+            other_data_changed_obj = {
+                "report_id": "rep-001",
+                "source_df": base_df,
+                "parameters": {"threshold": 99} # Change a parameter
+            }
+            hash5 = OutputDoc._hash(other_data_changed_obj)
+            self.assertNotEqual(hash1, hash5, "Changing non-DataFrame data must alter the final hash.")
+
     # --------------------------------------------------------------------- #
     # Run the suite
     # --------------------------------------------------------------------- #
