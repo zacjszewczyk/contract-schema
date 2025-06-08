@@ -1,36 +1,66 @@
-.PHONY: default  # Display a help message.
-.PHONY: clean    # Clean ancillary files.
-.PHONY: rebuild  # Rebuild a XeTeX PDF.
-.PHONY: push     # Push to remote endpoints.
-.PHONY: pull     # Pull from remote endpoints.
+# ──────────────────────────────────────────────────────────────────────────────
+# Makefile -- project helper & packaging for analytic-schema
+# ──────────────────────────────────────────────────────────────────────────────
 
-# Helper functions
+.PHONY: default help clean push pull build verify publish-test publish package
 
+# ─── Default target: show help ────────────────────────────────────────────────
+default: help
 
+help:
+	@echo "Available commands:"
+	@echo "  help           Show this message"
+	@echo "  clean          Remove build artifacts"
+	@echo "  push           Push all branches to origin & gitlab"
+	@echo "  pull           Pull master from origin & gitlab"
+	@echo
+	@echo "  build          Build source & wheel distributions"
+	@echo "  verify         Verify the distributions with twine"
+	@echo "  publish-test   Upload distributions to TestPyPI"
+	@echo "  publish        Upload distributions to PyPI"
+	@echo "  package        Alias for build + verify"
 
-default:
-	@echo "Command list:"
-	@echo " - default\tList commands."
-	@echo " - clean\tclean all ancillary files."
-	@echo " - rebuild\tRebuild a XeTeX PDF output file."
-	@echo " - push\t\tPush to all remote endpoints"
-	@echo " - pull\t\tPull from origin."
-
-clean:
-	-@rm main.aux main.log main.toc main.out 2> /dev/null
-
-rebuild:
-	rm main.pdf 2> /dev/null || true
-	xelatex main.tex 1> /dev/null
-	xelatex main.tex 1> /dev/null
-	xelatex main.tex 1> /dev/null
-	make clean
-
+# ─── Git operations ──────────────────────────────────────────────────────────
 push:
-	@git push origin --all
-	@git -c http.sslverify=false push gitlab --all
+	@echo "→ Pushing to origin and gitlab…"
+	git push origin --all
+	git -c http.sslverify=false push gitlab --all
 
 pull:
-	@git checkout master
-	@git pull origin master
-	@git -c http.sslverify=false pull gitlab master
+	@echo "→ Pulling from origin/master and gitlab/master…"
+	git checkout master
+	git pull origin master
+	git -c http.sslverify=false pull gitlab master
+
+# ─── Packaging settings ──────────────────────────────────────────────────────
+PACKAGE_NAME := analytic-schema
+BUILD_DIR    := dist
+
+# ─── Clean up build artifacts ────────────────────────────────────────────────
+clean:
+	@echo "→ Removing build artifacts…"
+	rm -rf $(BUILD_DIR) build *.egg-info
+
+# ─── Build source & wheel distributions ─────────────────────────────────────
+build: clean
+	@echo "→ Building source and wheel…"
+	python -m build --sdist --wheel
+
+# ─── Verify distributions with twine ─────────────────────────────────────────
+verify: build
+	@echo "→ Verifying archives…"
+	twine check $(BUILD_DIR)/*
+
+# ─── Upload to TestPyPI (dry-run) ────────────────────────────────────────────
+publish-test: verify
+	@echo "→ Uploading to TestPyPI…"
+	twine upload --repository testpypi $(BUILD_DIR)/*
+
+# ─── Upload to PyPI ──────────────────────────────────────────────────────────
+publish: verify
+	@echo "→ Uploading to PyPI…"
+	twine upload $(BUILD_DIR)/*
+
+# ─── Alias: build + verify ───────────────────────────────────────────────────
+package: verify
+	@echo "→ Package ready in $(BUILD_DIR)/"
