@@ -4,7 +4,14 @@ from analytic_schema import parse_input, validate_input, OutputDoc
 import time
 
 # 1) read & validate inputs
-raw = parse_input()  # or parse_input("..."), etc.
+cli_params = (
+    "--input-schema-version 1.0.0 "
+    "--start-dtg 2025-06-01T00:00:00Z "
+    "--end-dtg 2025-06-02T00:00:00Z "
+    "--data-source-type file "
+    "--data-source /tmp/conn.csv"
+)
+raw = parse_input(cli_params)  # or parse_input("..."), etc.
 params = validate_input(raw)
 
 # 2) your analytic logic
@@ -31,7 +38,7 @@ duration = (time.perf_counter() - start) * 1000
 
 # 3) build & emit output
 out = OutputDoc(
-    input_data_hash=params["input_data_hash"],
+    input_data_hash="f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2", # Dummy hash
     inputs=params
 )
 # record some messages
