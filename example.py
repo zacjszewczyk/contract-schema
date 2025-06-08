@@ -1,7 +1,5 @@
 # example_usage.py
-from .parser    import parse_input
-from .validator import validate_input, SchemaError, _DEFAULTS
-from .output    import OutputDoc
+from analytic_schema import parse_input, validate_input, OutputDoc
 
 import time
 
