@@ -8,3 +8,4 @@ __pycache__/
 .pypirc
 analytic_schema.egg-info/
 dist/
+build/
