@@ -47,54 +47,51 @@ import analytic_schema
 Below is a minimal end-to-end example showing how to go from raw inputs to a validated output file:
 
 ```
-    from analytic_schema import parse_input, validate_input, OutputDoc
-    import time
+from analytic_schema import parse_input, validate_input, OutputDoc
+import time
+ # 1) Parse input parameters (CLI string, list, JSON, or file)
+raw = parse_input(
+    “—input-schema-version 1.0.0 “
+    “—start-dtg 2025-06-01T00:00:00Z “
+    “—end-dtg   2025-06-02T00:00:00Z “
+    “—data-source-type file “
+    “—data-source /tmp/log.csv”
+)
+ # 2) Validate against the JSON contract and fill defaults
+params = validate_input(raw)
+ # 3) Run your analytic logic…
+start = time.perf_counter()
 
-    # 1) Parse input parameters (CLI string, list, JSON, or file)
-    raw = parse_input(
-        “—input-schema-version 1.0.0 “
-        “—start-dtg 2025-06-01T00:00:00Z “
-        “—end-dtg   2025-06-02T00:00:00Z “
-        “—data-source-type file “
-        “—data-source /tmp/log.csv”
-    )
+# ... your detection code here ...
 
-    # 2) Validate against the JSON contract and fill defaults
-    params = validate_input(raw)
-
-    # 3) Run your analytic logic…
-    start = time.perf_counter()
-    # ... your detection code here ...
-    findings = [
-        {
-            “finding_id”: “uuid-v4”,
-            “title”: “Suspicious pattern”,
-            “description”: “Detected anomalous traffic...”,
-            “event_dtg”: “2025-06-07T12:34:56Z”,
-            “severity”: “high”,
-            “confidence”: “0.92”,
-            “observables”: [“1.2.3.4”, “bad.example.com”],
-            “mitre_attack_tactics”: [“TA0001”],
-            “mitre_attack_techniques”: [“T1001”],
-            “recommended_actions”: “Block IP and review logs”,
-            “recommended_pivots”: “Check DNS logs”,
-            “classification”: “U”
-        }
-    ]
-    elapsed_ms = (time.perf_counter() - start) * 1000
-
-    # 4) Build the structured output document
-    out = OutputDoc(
-        input_data_hash=params[“input_data_hash”],
-        inputs=params,
-        findings=findings,
-        records_processed=len(findings)
-    )
-    out.add_message(“INFO”, “Analysis completed in %.2f ms” % elapsed_ms)
-    out.finalise()
-
-    # 5) Serialize to JSON
-    out.save(“analysis_output.json”)
+findings = [
+    {
+        “finding_id”: “uuid-v4”,
+        “title”: “Suspicious pattern”,
+        “description”: “Detected anomalous traffic...”,
+        “event_dtg”: “2025-06-07T12:34:56Z”,
+        “severity”: “high”,
+        “confidence”: “0.92”,
+        “observables”: [“1.2.3.4”, “bad.example.com”],
+        “mitre_attack_tactics”: [“TA0001”],
+        “mitre_attack_techniques”: [“T1001”],
+        “recommended_actions”: “Block IP and review logs”,
+        “recommended_pivots”: “Check DNS logs”,
+        “classification”: “U”
+    }
+]
+elapsed_ms = (time.perf_counter() - start) * 1000
+ # 4) Build the structured output document
+out = OutputDoc(
+    input_data_hash=params[“input_data_hash”],
+    inputs=params,
+    findings=findings,
+    records_processed=len(findings)
+)
+out.add_message(“INFO”, “Analysis completed in %.2f ms” % elapsed_ms)
+out.finalise()
+ # 5) Serialize to JSON
+out.save(“analysis_output.json”)
 ```
 
 This example demonstrates how Analytic Schema handles all the I/O boilerplate—CLI parsing, default injection, validation, metadata, logging, hashing, and final serialization—so you can focus on the core analytic logic.
@@ -102,24 +99,24 @@ This example demonstrates how Analytic Schema handles all the I/O boilerplate—
 ## Project structure
 
 ```
-    analytic-schema/ # Project repository
-    ├── analytic_schema/ # Package
-    │   ├── __init__.py
-    │   ├── loader.py
-    │   ├── parser.py
-    │   ├── validator.py
-    │   ├── output.py
-    │   └── analytic_schema.json
-    │
-    ├── tests/
-    │   └── test_analytic_schema.py
-    │
-    ├── example_usage.py
-    │
-    ├── README.md      # This file
-    ├── LICENSE.md     # Project license
-    ├── Makefile       # Project makefile
-    └── pyproject.toml
+analytic-schema/ # Project repository
+├── analytic_schema/ # Package
+│   ├── __init__.py
+│   ├── loader.py
+│   ├── parser.py
+│   ├── validator.py
+│   ├── output.py
+│   └── analytic_schema.json
+│
+├── tests/
+│   └── test_analytic_schema.py
+│
+├── example_usage.py
+│
+├── README.md      # This file
+├── LICENSE.md     # Project license
+├── Makefile       # Project makefile
+└── pyproject.toml
 ```
 
 ## Background and Motivation
