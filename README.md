@@ -28,6 +28,8 @@
 
 **Optional.** Installation instructions for the project. This may include as little as a ``git clone`` command, or as much as a multi-step process. Required for development projects; optional for all others.
 
+pip install analytic-schema but import analytic_schema.
+
 ## Usage
 
 **Optional.** Usage instructions for the project. This should consist of code blocks illustrating common usage followed by brief explanations. A good rule of thumb is taking a new user from zero to functional with the project. Required for development projects; optional for all others.
