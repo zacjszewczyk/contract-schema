@@ -1,0 +1,29 @@
+# pyproject.toml
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "analytic-schema"
+version = "1.0.0"
+description = "I/O schema loader + validator for analytics notebooks"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE.md" }
+authors = [
+  { name="Zachary Szewczyk", email="zacjszewczyk@gmail.com" }
+]
+dependencies = [
+  "pandas>=1.0"
+]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent"
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["analytic_schema*"]
+
+[tool.setuptools.package-data]
+"analytic_schema" = ["analytic_schema.json"]
