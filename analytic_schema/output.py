@@ -111,7 +111,7 @@ class OutputDoc(dict):
             raise SchemaError("'findings' must be a list")
 
         # validate each finding against the item schema
-        finding_schema = OUTPUT_SCHEMA["properties"]["findings"]["items"]
+        finding_schema = OUTPUT_SCHEMA["fields"]["findings"]["items"]
         for idx, finding in enumerate(self["findings"]):
             _validate(finding, finding_schema, path=f"OutputDoc.findings[{idx}]")
 
