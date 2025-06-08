@@ -67,5 +67,5 @@ package: verify
 	@echo "→ Package ready in $(BUILD_DIR)/"
 
 # ─── Alias: package + publish-test + publish ─────────────────────────────────
-redeploy: package publish-rest publish
+redeploy: package publish-test publish
 	@echo "→ Package deployed in $(BUILD_DIR)/"
