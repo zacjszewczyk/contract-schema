@@ -1,92 +1,139 @@
 # Analytic Schema
 
-Analytic Schema is a lightweight Python package for loading, validating, and building standardized I/O documents for analytics notebooks based on a single JSON contract.
+Analytic Schema is a lightweight Python package for loading, validating, and building standardized I/O documents for analytics notebooks based on a single, versioned JSON contract that drives both input parsing and output construction.
 
 ## Table of Contents
 
-* [**Description**](#description)
-* [**Dependencies**](#dependencies)
-* [**Installation**](#installation)
-* [**Usage**](#usage)
-* [**Project structure**](#project-structure)
-* [**Background and Motivation**](#background-and-motivation)
-* [**Contributing**](#contributing)
-* [**Contributors**](#contributors)
-* [**License**](#license)
+* [**Description**](#description)  
+* [**Dependencies**](#dependencies)  
+* [**Installation**](#installation)  
+* [**Usage**](#usage)  
+* [**Project structure**](#project-structure)  
+* [**Background and Motivation**](#background-and-motivation)  
+* [**Contributing**](#contributing)  
+* [**Contributors**](#contributors)  
+* [**License**](#license)  
 
 ## Description
 
-Analytic Schema provides a simple, dependency-light framework for cybersecurity analytics: you define a single JSON contract that specifies input and output fields, types, defaults, and constraints, and the library generates CLI flags, parses inputs (CLI, JSON dict, or file), injects defaults, performs deep validation, and builds validated output documents with structured logging and hashing. No third-party dependencies beyond `pandas`, perfect for air-gapped notebooks and pipelines.
+Analytic Schema centralizes your notebook or script I/O definitions into one authoritative JSON file. From that contract it automatically:
+
+- Generates a complete command-line interface (via `argparse`) for every input field.  
+- Parses parameters provided as CLI flags, JSON dictionaries, or JSON files.  
+- Injects sensible defaults for all optional inputs.  
+- Performs deep schema validation (type checks, enums, date-time formats, oneOf branches, and no extra fields).  
+- Builds structured output documents with embedded metadata, SHA-256 hashes for auditability, and a built-in logging mechanism.  
+
+With zero dependencies beyond the standard library and `pandas`, Analytic Schema is ideal for air-gapped notebooks, CI pipelines, or any environment where you need a robust, self-contained I/O layer for cybersecurity analytics.
 
 ## Dependencies
 
-This project depends only on the Python standard library (>=3.8) and pandas (>=1.0).
+This project depends only on the Python standard library (>=3.8) and `pandas` (>=1.0).
 
 ## Installation
 
-\`\`\`bash
+```
 pip install analytic-schema
-\`\`\`
+```
 
 In your code:
 
-\`\`\`python
+```
 import analytic_schema
-\`\`\`
+```
 
 ## Usage
 
-\`\`\`python
-from analytic_schema import parse_input, validate_input, OutputDoc
+Below is a minimal end-to-end example showing how to go from raw inputs to a validated output file:
 
-# 1) Parse raw inputs (CLI, JSON string, dict, or file)
-raw = parse_input(“—input-schema-version 1.0.0 “
-                  “—start-dtg 2025-06-01T00:00:00Z “
-                  “—end-dtg   2025-06-02T00:00:00Z “
-                  “—data-source-type file “
-                  “—data-source /tmp/log.csv”)
+```
+    from analytic_schema import parse_input, validate_input, OutputDoc
+    import time
 
-# 2) Validate and inject defaults
-params = validate_input(raw)
+    # 1) Parse input parameters (CLI string, list, JSON, or file)
+    raw = parse_input(
+        “—input-schema-version 1.0.0 “
+        “—start-dtg 2025-06-01T00:00:00Z “
+        “—end-dtg   2025-06-02T00:00:00Z “
+        “—data-source-type file “
+        “—data-source /tmp/log.csv”
+    )
 
-# 3) Run your analytic logic...
-#    (omitted)
+    # 2) Validate against the JSON contract and fill defaults
+    params = validate_input(raw)
 
-# 4) Build structured output
-out = OutputDoc(input_data_hash=“abcd1234...”, inputs=params)
-out.add_message(“INFO”, “Analysis complete”)
-out[“records_processed”] = 123
-out[“findings”] = [...]
-out.finalise()
-out.save(“output.json”)
-\`\`\`
+    # 3) Run your analytic logic…
+    start = time.perf_counter()
+    # ... your detection code here ...
+    findings = [
+        {
+            “finding_id”: “uuid-v4”,
+            “title”: “Suspicious pattern”,
+            “description”: “Detected anomalous traffic...”,
+            “event_dtg”: “2025-06-07T12:34:56Z”,
+            “severity”: “high”,
+            “confidence”: “0.92”,
+            “observables”: [“1.2.3.4”, “bad.example.com”],
+            “mitre_attack_tactics”: [“TA0001”],
+            “mitre_attack_techniques”: [“T1001”],
+            “recommended_actions”: “Block IP and review logs”,
+            “recommended_pivots”: “Check DNS logs”,
+            “classification”: “U”
+        }
+    ]
+    elapsed_ms = (time.perf_counter() - start) * 1000
+
+    # 4) Build the structured output document
+    out = OutputDoc(
+        input_data_hash=params[“input_data_hash”],
+        inputs=params,
+        findings=findings,
+        records_processed=len(findings)
+    )
+    out.add_message(“INFO”, “Analysis completed in %.2f ms” % elapsed_ms)
+    out.finalise()
+
+    # 5) Serialize to JSON
+    out.save(“analysis_output.json”)
+```
+
+This example demonstrates how Analytic Schema handles all the I/O boilerplate—CLI parsing, default injection, validation, metadata, logging, hashing, and final serialization—so you can focus on the core analytic logic.
 
 ## Project structure
 
-\`\`\`
-analytic-schema/ # Project repository
-├── analytic_schema/ # Package
-│   ├── __init__.py
-│   ├── loader.py
-│   ├── parser.py
-│   ├── validator.py
-│   ├── output.py
-│   └── analytic_schema.json
-│
-├── tests/
-│   └── test_analytic_schema.py
-│
-├── example_usage.py
-│
-├── README.md      # This file
-├── LICENSE.md     # Project license
-├── Makefile       # Project makefile
-└── pyproject.toml
-\`\`\`
+```
+    analytic-schema/ # Project repository
+    ├── analytic_schema/ # Package
+    │   ├── __init__.py
+    │   ├── loader.py
+    │   ├── parser.py
+    │   ├── validator.py
+    │   ├── output.py
+    │   └── analytic_schema.json
+    │
+    ├── tests/
+    │   └── test_analytic_schema.py
+    │
+    ├── example_usage.py
+    │
+    ├── README.md      # This file
+    ├── LICENSE.md     # Project license
+    ├── Makefile       # Project makefile
+    └── pyproject.toml
+```
 
 ## Background and Motivation
 
-In cybersecurity analytics and data processing, there’s a growing need for consistent, auditable, and interoperable I/O across diverse scripts and notebooks. By encoding your contract in a single JSON schema, Analytic Schema automates CLI generation, default handling, validation, and output construction—ensuring your pipelines are robust, maintainable, and easy to integrate without pulling in heavy dependencies.
+In cybersecurity analytics, consistency and auditability are paramount. Analysts and automation pipelines often spin up dozens of scripts and notebooks, each rolling its own argument parsing, validation, and output formatting. This fragmentation leads to subtle bugs, schema drift, and integration headaches.
+
+Analytic Schema addresses these challenges by elevating your I/O contract to one single JSON schema. This contract drives:
+
+- **Uniformity**: All analytics share the same field names, types, and defaults.  
+- **Reliability**: Fail-fast validation prevents runtime surprises from missing or mistyped parameters.  
+- **Traceability**: Inputs and findings are hashed, and logs are captured inline, enabling full audit trails.  
+- **Simplicity**: With only the standard library plus `pandas`, it works in air-gapped environments and keeps your dependencies minimal.  
+
+By abstracting away boilerplate, you can focus on detecting and investigating threats, while ensuring your pipelines remain robust, maintainable, and easily integrated.
 
 ## Contributing
 
@@ -101,7 +148,7 @@ There are no system requirements for contributing to this project. To contribute
 5. Select the “Create a new branch” radio button if you do not already have your own branch; otherwise, select your branch. The recommended naming convention for new branches is `first.middle.last`.
 6. Click the green “Commit” button.
 
-You may also contribute to this project using your local machine by cloning this repository to your workstation, creating a new branch, commiting and pushing your changes, and creating a merge request.
+You may also contribute to this project using your local machine by cloning this repository to your workstation, creating a new branch, committing and pushing your changes, and creating a merge request.
 
 ## Contributors
 
