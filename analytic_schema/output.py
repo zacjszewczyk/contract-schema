@@ -109,6 +109,12 @@ class OutputDoc(dict):
         self.setdefault("findings", [])
         if not isinstance(self["findings"], list):
             raise SchemaError("'findings' must be a list")
+
+        # validate each finding against the item schema
+        finding_schema = OUTPUT_SCHEMA["properties"]["findings"]["items"]
+        for idx, finding in enumerate(self["findings"]):
+            _validate(finding, finding_schema, path=f"OutputDoc.findings[{idx}]")
+
         self["findings_hash"] = OutputDoc._hash(self["findings"])
 
         # safe defaults for other optional fields
