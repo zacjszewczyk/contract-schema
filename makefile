@@ -19,6 +19,7 @@ help:
 	@echo "  publish-test   Upload distributions to TestPyPI"
 	@echo "  publish        Upload distributions to PyPI"
 	@echo "  package        Alias for build + verify"
+	@echo "  redeploy       Alias for package + publish-test + publish"
 
 # ─── Git operations ──────────────────────────────────────────────────────────
 push:
