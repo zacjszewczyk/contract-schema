@@ -27,3 +27,7 @@ include = ["analytic_schema*"]
 
 [tool.setuptools.package-data]
 "analytic_schema" = ["analytic_schema.json"]
+
+[project.urls]
+Homepage = "https://github.com/zacjszewczyk/analytic-schema"
+Issues = "https://github.com/zacjszewczyk/analytic-schemaissues"
