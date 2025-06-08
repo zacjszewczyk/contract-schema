@@ -122,6 +122,12 @@ def _validate(value: Any, schema: dict[str, Any], *, path: str) -> None:
     """
     # 1) type‐union
     types = schema.get("type")
+    # If the contract uses the compact "fields" form but forgets to
+    # declare `"type": "object"`, infer it so that deep validation still
+    # happens (needed for findings items, etc.).
+    if types is None and "fields" in schema:
+        types = ["object"]
+
     if types:
         allowed = types if isinstance(types, list) else [types]
         for t in allowed:
@@ -141,7 +147,10 @@ def _validate(value: Any, schema: dict[str, Any], *, path: str) -> None:
         raise SchemaError(f"{path}: '{value}' is not valid ISO-8601 date-time")
 
     # 4) object recursion
-    if isinstance(value, dict) and "object" in (types if types else []):
+    is_object_schema = ("object" in (types if isinstance(types, list) else [types])
+                        if types else False) or "fields" in schema
+
+    if isinstance(value, dict) and is_object_schema:
         fields = schema.get("fields", {})
         req = {k for k,meta in fields.items() if meta.get("required")}
         extras = set(value) - set(fields)
