@@ -69,7 +69,7 @@ class AnalyticSchemaTests(unittest.TestCase):
             "input_schema_version": "1.0.0",
             "start_dtg": "2025-07-01T00:00:00Z",
             "end_dtg":   "2025-07-02T00:00:00Z",
-            "data_source_type": "api endpoint",
+            "data_source_type": "api",
             "data_source": "https://api.example.com/data",
         }
         cfg_path = _Util.tmp_json(cfg)
