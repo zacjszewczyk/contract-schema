@@ -5,9 +5,9 @@ import copy
 from pathlib import Path
 import pandas as pd
 
-from .parser    import parse_input
-from .validator import validate_input, SchemaError, _DEFAULTS
-from .output    import OutputDoc
+from analytic_schema.parser    import parse_input
+from analytic_schema.validator import validate_input, SchemaError, _DEFAULTS
+from analytic_schema.output    import OutputDoc
 
 class _Util:
     @staticmethod
