@@ -44,7 +44,7 @@ clean:
 # ─── Build source & wheel distributions ─────────────────────────────────────
 build: clean
 	@echo "→ Building source and wheel…"
-	python -m build --sdist --wheel
+	python3 -m build --sdist --wheel
 
 # ─── Verify distributions with twine ─────────────────────────────────────────
 verify: build
