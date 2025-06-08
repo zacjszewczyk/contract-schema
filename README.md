@@ -47,51 +47,63 @@ import analytic_schema
 Below is a minimal end-to-end example showing how to go from raw inputs to a validated output file:
 
 ```
+# example_usage.py
 from analytic_schema import parse_input, validate_input, OutputDoc
+
 import time
- # 1) Parse input parameters (CLI string, list, JSON, or file)
-raw = parse_input(
-    “—input-schema-version 1.0.0 “
-    “—start-dtg 2025-06-01T00:00:00Z “
-    “—end-dtg   2025-06-02T00:00:00Z “
-    “—data-source-type file “
-    “—data-source /tmp/log.csv”
+
+# 1) read & validate inputs
+cli_params = (
+    "--input-schema-version 1.0.0 "
+    "--start-dtg 2025-06-01T00:00:00Z "
+    "--end-dtg 2025-06-02T00:00:00Z "
+    "--data-source-type file "
+    "--data-source /tmp/conn.csv"
 )
- # 2) Validate against the JSON contract and fill defaults
+# Validate against the JSON contract and fill defaults
+raw = parse_input(cli_params)  # or parse_input("..."), etc.
 params = validate_input(raw)
- # 3) Run your analytic logic…
+
+# 2) Run your analytic logic ...
 start = time.perf_counter()
 
 # ... your detection code here ...
 
+total = 123
 findings = [
     {
-        “finding_id”: “uuid-v4”,
-        “title”: “Suspicious pattern”,
-        “description”: “Detected anomalous traffic...”,
-        “event_dtg”: “2025-06-07T12:34:56Z”,
-        “severity”: “high”,
-        “confidence”: “0.92”,
-        “observables”: [“1.2.3.4”, “bad.example.com”],
-        “mitre_attack_tactics”: [“TA0001”],
-        “mitre_attack_techniques”: [“T1001”],
-        “recommended_actions”: “Block IP and review logs”,
-        “recommended_pivots”: “Check DNS logs”,
-        “classification”: “U”
+      "finding_id": "123e4567-e89b-12d3-a456-426614174000",
+      "title": "Suspicious DNS query",
+      "description": "High‐volume NXDOMAIN ...",
+      "event_dtg": "2025-06-07T12:34:56Z",
+      "severity": "high",
+      "confidence": "0.85",
+      "observables": ["evil.example.com"],
+      "mitre_attack_tactics": ["TA0001"],
+      "mitre_attack_techniques": ["T1001"],
+      "recommended_actions": "Block domain",
+      "recommended_pivots": "Check DNS logs",
+      "classification": "U"
     }
 ]
-elapsed_ms = (time.perf_counter() - start) * 1000
- # 4) Build the structured output document
+duration = (time.perf_counter() - start) * 1000
+
+# 3) Build the structured output document
 out = OutputDoc(
-    input_data_hash=params[“input_data_hash”],
-    inputs=params,
-    findings=findings,
-    records_processed=len(findings)
+    input_data_hash="f2ca1bb6c7e907d06dafe4687e579fce76b37e4e93b7605022da52e6ccc26fd2", # Dummy hash
+    inputs=params
 )
-out.add_message(“INFO”, “Analysis completed in %.2f ms” % elapsed_ms)
+
+# record some messages
+out.add_message("INFO", "Analysis started")
+out.add_message("INFO", "Found %d records" % total)
+
+out["records_processed"] = total
+out["findings"] = findings
+
+# 4) Finalize the document and write the output file
 out.finalise()
- # 5) Serialize to JSON
-out.save(“analysis_output.json”)
+out.save("notebook_output.json")
 ```
 
 This example demonstrates how Analytic Schema handles all the I/O boilerplate—CLI parsing, default injection, validation, metadata, logging, hashing, and final serialization—so you can focus on the core analytic logic.
