@@ -363,7 +363,7 @@ class AnalyticSchemaTests(unittest.TestCase):
     # Extra: ensure _DEFAULTS covers all optional INPUT_SCHEMA fields
     def test_defaults_cover_all_optionals(self):
         optionals = [k for k,meta in 
-                     __import__("schema_io").validator.INPUT_SCHEMA["fields"].items()
+                     __import__("analytic_schema").validator.INPUT_SCHEMA["fields"].items()
                      if not meta.get("required",False)]
         self.assertTrue(set(optionals).issuperset(set(_DEFAULTS.keys())))
 
