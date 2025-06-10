@@ -134,7 +134,7 @@ class OutputDoc(dict):
             self.setdefault(k, v)
 
         # Log finalization
-        out.add_message("INFO", "Output document finalised.")
+        self.add_message("INFO", "Output document finalised.")
         
         # final validation
         _validate(self, OUTPUT_SCHEMA, path="OutputDoc")
@@ -152,7 +152,7 @@ class OutputDoc(dict):
                      encoding="utf-8")
 
         # Log save
-        out.add_message("INFO", "Output document saved")
+        self.add_message("INFO", "Output document saved")
         
         if not quiet:
             display_output(f"Output saved to {p.resolve()}")
