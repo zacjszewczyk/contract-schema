@@ -44,7 +44,6 @@ out = OutputDoc(
 
 # Add informational log messages to the document for traceability and debugging.
 out.add_message("INFO", "Parameters processed successfully")
-out.add_message("INFO", "Output document created")
 
 # ------------------------------
 # STEP 3: Perform Analysis (Simulated)

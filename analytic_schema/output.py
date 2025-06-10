@@ -45,6 +45,9 @@ class OutputDoc(dict):
         self.__start = _dt.datetime.now(_dt.timezone.utc)
         self.setdefault("messages", [])
 
+        # Log that the output document was created
+        self.add_message("INFO", "Output document created")
+
     def add_message(self, level: Union[str, _Level], text: str) -> None:
         if isinstance(level, str):
             lvl = level.upper()
