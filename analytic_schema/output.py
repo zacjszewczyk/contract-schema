@@ -150,9 +150,6 @@ class OutputDoc(dict):
         doc = self._serial()
         p.write_text(json.dumps(doc, indent=indent, ensure_ascii=False),
                      encoding="utf-8")
-
-        # Log save
-        self.add_message("INFO", "Output document saved")
         
         if not quiet:
             display_output(f"Output saved to {p.resolve()}")
