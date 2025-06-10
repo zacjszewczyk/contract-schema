@@ -96,7 +96,7 @@ class OutputDoc(dict):
         # must have inputs dict
         if "inputs" not in self or not isinstance(self["inputs"], dict):
             raise SchemaError("missing or invalid 'inputs' before finalise()")
-
+        
         end = _dt.datetime.now(_dt.timezone.utc)
         # set meta‐fields if absent
         self.setdefault("run_id", str(uuid.uuid4()))
@@ -133,6 +133,9 @@ class OutputDoc(dict):
         }.items():
             self.setdefault(k, v)
 
+        # Log finalization
+        out.add_message("INFO", "Output document finalised.")
+        
         # final validation
         _validate(self, OUTPUT_SCHEMA, path="OutputDoc")
 
@@ -147,5 +150,9 @@ class OutputDoc(dict):
         doc = self._serial()
         p.write_text(json.dumps(doc, indent=indent, ensure_ascii=False),
                      encoding="utf-8")
+
+        # Log save
+        out.add_message("INFO", "Output document saved")
+        
         if not quiet:
             display_output(f"Output saved to {p.resolve()}")
