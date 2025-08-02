@@ -7,6 +7,7 @@ import datetime as _dt
 import json
 from pathlib import Path
 from typing import Any, Mapping
+import uuid, socket, getpass
 
 from . import utils
 from . import validator
@@ -55,11 +56,7 @@ class Document(dict):
         def _maybe(field: str, value: Any) -> None:
             if field in self.__schema.get("fields", {}) and field not in self:
                 self[field] = value
-
-        # ------------------------------------------------------------------ #
-        # Analytic-schema meta                                               #
-        # ------------------------------------------------------------------ #
-        import uuid, socket, getpass
+        
         _maybe("run_id",               str(uuid.uuid4()))
         _maybe("run_user",             getpass.getuser())
         _maybe("run_host",             socket.gethostname())

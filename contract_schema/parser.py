@@ -6,18 +6,6 @@ This helper replaces the previous *dual* versions that were bound to
 `analytic_schema` and `model_schema`.  It works with **any** schema that
 follows the same JSON‑Schema‑lite pattern:
 
-```jsonc
-{
-  "title": "…",
-  "version": "…",
-  "description": "…",
-  "fields": {
-      "foo": {"type": "string", "description": "…"},
-      "bar": {"type": ["integer", "null"], "description": "…"}
-  }
-}
-```
-
 Public API
 ----------
 `build_arg_parser(schema: Mapping) -> argparse.ArgumentParser`
