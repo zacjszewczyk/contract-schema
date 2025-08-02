@@ -44,14 +44,11 @@ class Contract:
         
         raw_input = parser.parse_input(source, schema=self.input_schema)
         
-        # In this unified model, file dereferencing is often for analytic inputs
-        deref = bool(self.defaults)
-        
         return validator.validate_with_defaults(
             raw_input,
             schema=self.input_schema,
             defaults=self.defaults,
-            deref_json_files=deref,
+            deref_json_files=True,
         )
 
     def create_document(self, **kwargs) -> Document:
