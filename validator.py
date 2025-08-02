@@ -37,11 +37,11 @@ from __future__ import annotations
 
 import copy
 import json
-import re
 from pathlib import Path
 from typing import Any, Mapping, Sequence, Tuple, Union
 
 import pandas as pd
+from . import utils
 
 __all__ = [
     "SchemaError",
