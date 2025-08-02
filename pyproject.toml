@@ -1,0 +1,29 @@
+# pyproject.toml – contract-schema
+
+[project]
+name = "contract-schema"
+description = "Standardised inputs and outputs based on contract files."
+readme = "README.md"
+version = "0.1.0"
+requires-python = ">=3.8"
+license = { file = "LICENSE.md" }
+authors = [
+  { name="Zachary Szewczyk", email="zacjszewczyk@gmail.com" }
+]
+dependencies = []    # core has no deps
+
+[project.optional-dependencies]
+analytic = ["pandas>=1.0"]
+
+[tool.setuptools.package-data]
+"contract_schema" = ["../schemas/*.json"]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "License :: OSI Approved :: Apache Software License",
+  "Operating System :: OS Independent"
+]
+
+[project.urls]
+Homepage = "https://github.com/zacjszewczyk/contract-schema"
+Issues   = "https://github.com/zacjszewczyk/contract-schema/issues"
