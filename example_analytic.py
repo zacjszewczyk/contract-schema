@@ -23,7 +23,7 @@ from pathlib import Path
 import pandas as pd
 from sklearn.datasets import load_iris
 
-from contract_schema import Contract, utils
+from contract_schema import Contract, utils, to_markdown_card
 
 # --------------------------------------------------------------------------- #
 # 1.  Load contract                                                           #
@@ -113,3 +113,5 @@ doc.finalise()
 outfile = Path("iris_analytic_report.json")
 doc.save(outfile)
 print(f"✅  Analytic report written to {outfile.resolve()}")
+
+print(to_markdown_card(doc))
