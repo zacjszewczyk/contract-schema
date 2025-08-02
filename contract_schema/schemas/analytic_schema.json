@@ -7,13 +7,6 @@
         "type": "object",
         "description": "Parameter block passed to a script.",
         "fields": {
-            "input_schema_version": {
-                "type": [
-                    "string"
-                ],
-                "required": true,
-                "description": "Semantic-version identifier for this input contract so runners can verify compatibility."
-            },
             "start_dtg": {
                 "type": [
                     "string"

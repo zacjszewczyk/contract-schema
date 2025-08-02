@@ -313,7 +313,7 @@
                     "string"
                 ],
                 "required": true,
-                "description": "Canonical identifier or filesystem path of the model."
+                "description": "Canonical identifier of the model."
             },
             "model_type": {
                 "type": [
@@ -500,6 +500,13 @@
                 "required": true,
                 "format": "date-time",
                 "description": "UTC timestamp (ISO 8601) when the model was saved."
+            },
+            "model_file_path": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Filesystem path to the serialized model file."
             },
             "model_file_hash": {
                 "type": [
