@@ -28,18 +28,28 @@ class Contract:
         """Loads a contract schema from a JSON file and returns a Contract instance."""
         schema_data = loader.load_schema(path)
 
-        # Contract with explicit keys
-        if (all(key in schema_data for key in ("title", "description", "version", "input", "output"))):
-            # Pass all required arguments to the constructor
-            return cls(
-                title=schema_data.get("title"),
-                description=schema_data.get("description"),
-                version=schema_data.get("version"),
-                input_schema=schema_data.get("input"),
-                output_schema=schema_data.get("output"),
-            )
-        # Otherwise, raise an error
-            raise ValueError(f"Schema at '{path}' is not a valid contract schema. Required keys: 'title', 'description', 'version', 'input', 'output'.")
+        # ------------------------------------------------------------------
+        # 1.  Validate the *contract* itself against the meta-schema
+        # ------------------------------------------------------------------
+        try:
+            meta = loader.load_schema("contract_meta_schema.json")
+            from . import validator
+            validator.validate(schema_data, schema=meta)
+        except Exception as exc:               # SchemaError, FileNotFoundError, …
+            raise ValueError(
+                f"Schema at '{path}' does not satisfy contract_meta_schema.json: {exc}"
+            ) from exc
+
+        # ------------------------------------------------------------------
+        # 2.  Create the Contract object (we know required keys exist)
+        # ------------------------------------------------------------------
+        return cls(
+            title=schema_data["title"],
+            description=schema_data["description"],
+            version=schema_data["version"],
+            input_schema=schema_data["input"],
+            output_schema=schema_data["output"],
+        )
 
     def parse_and_validate_input(self, source: Any | None = None) -> dict[str, Any]:
         """
