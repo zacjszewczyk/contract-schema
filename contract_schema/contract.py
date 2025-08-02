@@ -15,22 +15,21 @@ from .document import Document
 class Contract:
     """A high-level interface for a loaded input/output schema contract."""
 
-    def __init__(self, title: str, description: str, version: str, input_schema: dict, output_schema: dict, defaults: dict | None = None):
+    def __init__(self, title: str, description: str, version: str, input_schema: dict, output_schema: dict):
         """Initializes the Contract with parsed schema definitions."""
         self.title = title
         self.description = description
         self.version = version
         self.input_schema = input_schema
         self.output_schema = output_schema
-        self.defaults = defaults or {}
 
     @classmethod
     def load(cls, path: str | Path) -> "Contract":
         """Loads a contract schema from a JSON file and returns a Contract instance."""
         schema_data = loader.load_schema(path)
 
-        # Contract with explicit input/output/defaults keys
-        if (all(key in schema_data for key in ("title", "description", "version", "input", "output", "defaults"))):
+        # Contract with explicit keys
+        if (all(key in schema_data for key in ("title", "description", "version", "input", "output"))):
             # Pass all required arguments to the constructor
             return cls(
                 title=schema_data.get("title"),
@@ -38,10 +37,9 @@ class Contract:
                 version=schema_data.get("version"),
                 input_schema=schema_data.get("input"),
                 output_schema=schema_data.get("output"),
-                defaults=schema_data.get("defaults", None)
             )
         # Otherwise, raise an error
-            raise ValueError(f"Schema at '{path}' is not a valid contract schema. Required keys: 'title', 'description', 'version', 'input', 'output', 'defaults'.")
+            raise ValueError(f"Schema at '{path}' is not a valid contract schema. Required keys: 'title', 'description', 'version', 'input', 'output'.")
 
     def parse_and_validate_input(self, source: Any) -> dict[str, Any]:
         """Parses and validates an input source against the input schema."""
@@ -50,11 +48,9 @@ class Contract:
         
         raw_input = parser.parse_input(source, schema=self.input_schema)
         
-        return validator.validate_with_defaults(
+        return validator.validate(
             raw_input,
-            schema=self.input_schema,
-            defaults=self.defaults,
-            deref_json_files=True,
+            schema=self.input_schema
         )
 
     def create_document(self, **kwargs) -> Document:

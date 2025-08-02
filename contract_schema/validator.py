@@ -16,14 +16,6 @@ validate(doc: Mapping, *, schema: Mapping[str, Any], path: str = "root")
     Depth‑first validation that enforces type, enum, format, required fields,
     additionalProperties, list item validation, etc.
 
-apply_defaults(doc: dict, defaults: Mapping[str, Any]) -> None
-    Inject default values (deep‑copied) for keys missing from *doc*.
-
-validate_with_defaults(raw, *, schema, defaults=None, deref_json_files=False)
-    Convenience wrapper used by the analytic input pipeline – handles
-    ``--config`` overrides, JSON‑file dereferencing, default injection and then
-    calls `validate`.
-
 The old *specialised* helpers (`validate_input`, `validate_manifest`) can now
 be written in one line each.
 """
@@ -39,9 +31,7 @@ from . import utils
 
 __all__ = [
     "SchemaError",
-    "validate",
-    "apply_defaults",
-    "validate_with_defaults",
+    "validate"
 ]
 
 # --------------------------------------------------------------------------- #
@@ -116,68 +106,3 @@ def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> No
         if item_schema is not None:
             for idx, item in enumerate(value):
                 validate(item, schema=item_schema, path=f"{path}[{idx}]")
-
-
-# --------------------------------------------------------------------------- #
-# Defaults helper                                                             #
-# --------------------------------------------------------------------------- #
-
-def apply_defaults(doc: dict[str, Any], defaults: Mapping[str, Any]) -> None:
-    """In-place fill *doc* with deep-copies from *defaults* where absent."""
-    for k, v in defaults.items():
-        if k not in doc:
-            doc[k] = copy.deepcopy(v)
-
-
-# --------------------------------------------------------------------------- #
-# Convenience wrapper (used by analytic input pipeline)                       #
-# --------------------------------------------------------------------------- #
-
-def validate_with_defaults(
-    raw: Mapping[str, Any] | dict,
-    *,
-    schema: Mapping[str, Any],
-    defaults: Mapping[str, Any] | None = None,
-    deref_json_files: bool = False,
-) -> dict[str, Any]:
-    """Full helper with config-file override, JSON deref and default injection."""
-
-    if not isinstance(raw, dict):
-        raise TypeError("validate_with_defaults expects a mapping")
-
-    data: dict[str, Any] = dict(raw)  # shallow copy – we mutate below
-
-    # --config override -----------------------------------------------------
-    cfg = data.pop("config", None)
-    if cfg is not None:
-        p = Path(cfg)
-        if not p.is_file():
-            raise FileNotFoundError(f"--config '{cfg}' is not a file")
-        data = json.loads(p.read_text(encoding="utf-8"))
-        if not isinstance(data, dict):
-            raise ValueError("Config JSON must be an object at top level")
-
-    # Optional dereference for specific fields -----------------------------
-    if deref_json_files:
-        for key, val in list(data.items()):
-            if isinstance(val, str):
-                p = Path(val)
-                if p.is_file():
-                    try:
-                        parsed = json.loads(p.read_text(encoding="utf-8"))
-                        data[key] = parsed
-                    except json.JSONDecodeError:
-                        pass  # leave as path string
-                else:
-                    try:
-                        data[key] = json.loads(val)
-                    except json.JSONDecodeError:
-                        pass  # leave as raw string
-
-    # defaults -------------------------------------------------------------
-    if defaults is not None:
-        apply_defaults(data, defaults)
-
-    # deep validation -------------------------------------------------------
-    validate(data, schema=schema, path="root")
-    return data
