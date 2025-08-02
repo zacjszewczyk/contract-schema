@@ -1,5 +1,5 @@
 .ipynb_checkpoints/
-model_schema/__pycache__/
+contract_schema/__pycache__/
 build/
 dist/
-model_schema.egg-info/
+contract_schema.egg-info/
