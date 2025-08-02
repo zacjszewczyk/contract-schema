@@ -3,3 +3,7 @@ contract_schema/__pycache__/
 build/
 dist/
 contract_schema.egg-info/
+.virtual_documents/
+Untitled.ipynb
+example_model.py
+iris_rf.joblib
