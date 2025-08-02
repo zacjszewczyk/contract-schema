@@ -36,57 +36,44 @@ class Document(dict):
         })
 
     def finalise(self) -> None:
-        """Populate any schema-required meta-fields, then validate."""
+        """Populate select meta fields, then validate."""
         if self.__finalised:
             return
 
-        # ------------------------------------------------------------------ #
-        # Core timing                                                        #
-        # ------------------------------------------------------------------ #
-        now_iso                       = utils._now_iso()
-        self["finalization_dtg"]      = now_iso
-        
-        init_dt                       = _dt.datetime.fromisoformat(
-                                           self["initialization_dtg"].replace("Z", "+00:00"))
-        end_dt                        = _dt.datetime.fromisoformat(
-                                           now_iso.replace("Z", "+00:00"))
-        self["total_runtime_seconds"] = int((end_dt - init_dt).total_seconds())
+        # Record the current time
+        now_iso = utils._now_iso()
 
-        # Helper – write a value **only if** the schema expects the field and
-        # the caller hasn’t supplied one already.
-        def _maybe(field: str, value: Any) -> None:
-            if field in self.__schema.get("fields", {}) and field not in self:
-                self[field] = value
+        if "finalization_dtg" in self and "finalization_dtg" in self.__schema.get("fields", {}):
+            self["finalization_dtg"] = now_iso
         
-        _maybe("run_id",               str(uuid.uuid4()))
+        if "total_runtime_seconds" in self and "total_runtime_seconds" in self.__schema.get("fields", {}):
+            init_dt = _dt.datetime.fromisoformat(self["initialization_dtg"].replace("Z", "+00:00"))
+            end_dt = _dt.datetime.fromisoformat(self["finalization_dtg"].replace("Z", "+00:00"))
+            self["total_runtime_seconds"] = int((end_dt - init_dt).total_seconds())
+        
+        if "run_id" in self and "run_id" in self.__schema.get("fields", {}):
+            self["run_id"] = str(uuid.uuid4()))
 
         # Schema versions
-        inputs = self.get("inputs", {})
-        if isinstance(inputs, dict):
-            _maybe("input_schema_version",  inputs.get("input_schema_version", "UNKNOWN"))
-        else:
-            _maybe("input_schema_version",  "UNKNOWN")
-        _maybe("output_schema_version", self.__schema.get("version", "UNKNOWN"))
+        if "input_schema_version" in self and "input_schema_version" in self.__schema.get("fields", {}):
+            self["input_schema_version"] = self.get("inputs", {}).get("input_schema_version", "UNKNOWN"))
+        if "output_schema_version" in self and "output_schema_version" in self.__schema.get("fields", {}):
+            self["output_schema_version"] = self.get("inputs", {}).get("output_schema_version", "UNKNOWN"))
 
-        # Hashes (if their schema fields exist)
+        # Hashes
         if "inputs" in self and "input_hash" in self.__schema.get("fields", {}):
             self["input_hash"] = utils._hash(self["inputs"])
 
         if "findings" in self and "findings_hash" in self.__schema.get("fields", {}):
             self["findings_hash"] = utils._hash(self["findings"])
 
-        # ------------------------------------------------------------------ #
-        # Model-schema specific                                              #
-        # ------------------------------------------------------------------ #
         if ("model_file_hash" in self.__schema.get("fields", {}) and "model_file_hash" not in self):
             path_str = self.get("model_file_path") or self.get("model_path")
             self["model_file_hash"] = (
                 utils._sha256(Path(path_str)) if path_str else "0" * 64
             )
 
-        # ------------------------------------------------------------------ #
-        # Execution environment (common)                                     #
-        # ------------------------------------------------------------------ #
+        # Execution environment
         if "execution_environment" in self.__schema.get("fields", {}):
             self.setdefault("execution_environment", {
                 "python_version":       utils.platform.python_version(),
@@ -96,9 +83,7 @@ class Document(dict):
                 "hardware_specs":       utils._hardware_specs(),
             })
 
-        # ------------------------------------------------------------------ #
-        # Final validation                                                   #
-        # ------------------------------------------------------------------ #
+        # Final validation
         validator.validate(self, schema=self.__schema)
         self.__finalised = True
 
