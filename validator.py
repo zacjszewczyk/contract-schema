@@ -22,15 +22,10 @@ apply_defaults(doc: dict, defaults: Mapping[str, Any]) -> None
 validate_with_defaults(raw, *, schema, defaults=None, deref_json_files=False)
     Convenience wrapper used by the analytic input pipeline – handles
     ``--config`` overrides, JSON‑file dereferencing, default injection and then
-    calls :pyfunc:`validate`.
+    calls `validate`.
 
 The old *specialised* helpers (`validate_input`, `validate_manifest`) can now
-be written in one line each:
-
-```python
-validated = validate_with_defaults(obj, schema=INPUT_SCHEMA, defaults=_DEFAULTS)
-validate(manifest, schema=OUTPUT_SCHEMA)
-```
+be written in one line each.
 """
 
 from __future__ import annotations
@@ -38,9 +33,8 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
-from typing import Any, Mapping, Sequence, Tuple, Union
+from typing import Any, Mapping
 
-import pandas as pd
 from . import utils
 
 __all__ = [
@@ -59,41 +53,10 @@ class SchemaError(ValueError):
 
 
 # --------------------------------------------------------------------------- #
-# Helpers                                                                     #
-# --------------------------------------------------------------------------- #
-
-_DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:\d{2})$")
-
-
-def _is_datetime(value: Any) -> bool:
-    """Return True iff *value* is a valid ISO‑8601 date‑time string."""
-    if not isinstance(value, str) or not _DT_RE.fullmatch(value):
-        return False
-    from datetime import datetime
-
-    try:
-        datetime.fromisoformat(value.replace("Z", "+00:00"))
-        return True
-    except ValueError:
-        return False
-
-
-_TYPE_MAP: dict[str, Union[type, Tuple[type, ...]]] = {
-    "string": str,
-    "integer": int,
-    "number": (int, float),
-    "boolean": bool,
-    "object": dict,
-    "list": list,
-    "dataframe": pd.DataFrame,
-}
-
-
-# --------------------------------------------------------------------------- #
 # Core recursive validator                                                    #
 # --------------------------------------------------------------------------- #
 
-def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> None:  # noqa: C901, PLR0912 – recursion
+def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> None:
     """Recursively assert that *value* satisfies *schema*.
 
     The function implements the minimal‑viable subset of JSON‑Schema required
@@ -113,16 +76,16 @@ def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> No
     # 1) type check ---------------------------------------------------------
     if stype:
         allowed = list(stype) if isinstance(stype, (list, tuple)) else [stype]
-        if not any(isinstance(value, _TYPE_MAP.get(t, object)) for t in allowed):
+        if not any(isinstance(value, utils._TYPE_MAP.get(t, object)) for t in allowed):
             raise SchemaError(f"{path}: expected {allowed}, got {type(value).__name__}")
 
     # 2) enum --------------------------------------------------------------
     if "enum" in schema and value not in schema["enum"]:
         raise SchemaError(f"{path}: '{value}' not in {schema['enum']}")
 
-    # 3) format                                                              #
-    if schema.get("format") == "date-time" and not _is_datetime(value):
-        raise SchemaError(f"{path}: '{value}' is not ISO‑8601 date‑time")
+    # 3) format                                                             #
+    if schema.get("format") == "date-time" and not utils._is_datetime(value):
+        raise SchemaError(f"{path}: '{value}' is not ISO-8601 date-time")
 
     # 4) object recursion ---------------------------------------------------
     if isinstance(value, dict):
@@ -160,7 +123,7 @@ def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> No
 # --------------------------------------------------------------------------- #
 
 def apply_defaults(doc: dict[str, Any], defaults: Mapping[str, Any]) -> None:
-    """In‑place fill *doc* with deep‑copies from *defaults* where absent."""
+    """In-place fill *doc* with deep-copies from *defaults* where absent."""
     for k, v in defaults.items():
         if k not in doc:
             doc[k] = copy.deepcopy(v)
@@ -177,7 +140,7 @@ def validate_with_defaults(
     defaults: Mapping[str, Any] | None = None,
     deref_json_files: bool = False,
 ) -> dict[str, Any]:
-    """Full helper with config‑file override, JSON deref and default injection."""
+    """Full helper with config-file override, JSON deref and default injection."""
 
     if not isinstance(raw, dict):
         raise TypeError("validate_with_defaults expects a mapping")
