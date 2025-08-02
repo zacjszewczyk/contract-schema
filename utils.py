@@ -1,36 +1,63 @@
 """
-utils.py – shared, low-level utilities for hashing, validation, and I/O.
+utils.py – shared, low-level helpers for the contract-schema package.
+
+This module contains common, dependency-free utilities for:
+- Hashing files and Python objects.
+- Handling timestamps and date-time validation.
+- Capturing execution environment details (hardware, library versions).
 """
+
 from __future__ import annotations
 
 import datetime as _dt
+import getpass
 import hashlib
+import importlib.metadata as _im
 import json
+import os
+import platform
 import re
+import socket
 from pathlib import Path
-from typing import Any
+from typing import Any, Dict
 
-# Optional pandas import for DataFrame hashing
-try:
-    import pandas as pd
-    PANDAS_AVAILABLE = True
-except ImportError:
-    PANDAS_AVAILABLE = False
+__all__ = [
+    "is_datetime",
+    "sha256_file",
+    "hash_object",
+    "now_iso",
+    "get_library_versions",
+    "get_hardware_specs",
+]
 
+# --------------------------------------------------------------------------- #
+# Date-Time Helpers                                                           #
+# --------------------------------------------------------------------------- #
 
-def is_iso8601_datetime(value: Any) -> bool:
+_DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:\d{2})$")
+
+def is_datetime(value: Any) -> bool:
     """Return True iff *value* is a valid ISO-8601 date-time string."""
-    dt_re = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:\d{2})$")
-    if not isinstance(value, str) or not dt_re.fullmatch(value):
+    if not isinstance(value, str) or not _DT_RE.fullmatch(value):
         return False
+    from datetime import datetime
+
     try:
-        _dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+        datetime.fromisoformat(value.replace("Z", "+00:00"))
         return True
     except ValueError:
         return False
 
+def now_iso() -> str:
+    """Return the current UTC timestamp in ISO-8601 format (second precision)."""
+    return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
 
-def get_file_sha256(path: Path) -> str:
+
+# --------------------------------------------------------------------------- #
+# Hashing Helpers                                                             #
+# --------------------------------------------------------------------------- #
+
+def sha256_file(path: Path) -> str:
     """Return the SHA-256 hash for the file at the given path."""
     h = hashlib.sha256()
     with path.open("rb") as fd:
@@ -39,22 +66,59 @@ def get_file_sha256(path: Path) -> str:
     return h.hexdigest()
 
 
-def _to_json_safe_object(x: Any) -> Any:
+def _json_safe_recursor(x: Any) -> Any:
     """Recursively prepare an object for deterministic JSON hashing."""
-    if PANDAS_AVAILABLE and isinstance(x, pd.DataFrame):
-        # Represent DataFrame by a hash of its content
-        js = x.to_json(orient="split", date_unit="ns")
-        return {"__dataframe_sha256__": hashlib.sha256(js.encode()).hexdigest()}
+    # Defer pandas import until it's needed
+    try:
+        import pandas as pd
+        if isinstance(x, pd.DataFrame):
+            js = x.to_json(orient="split", date_unit="ns")
+            return {"__dataframe_sha256__": hashlib.sha256(js.encode()).hexdigest()}
+    except ImportError:
+        pass # pandas not installed, will not handle DataFrame type
+
     if isinstance(x, dict):
-        return {k: _to_json_safe_object(v) for k, v in x.items()}
+        return {k: _json_safe_recursor(v) for k, v in x.items()}
     if isinstance(x, (list, tuple)):
-        return [_to_json_safe_object(v) for v in x]
+        return [_json_safe_recursor(v) for v in x]
     return x
 
 
 def hash_object(obj: Any) -> str:
-    """Return a deterministic SHA-256 hash for a nested Python object."""
-    safe_obj = _to_json_safe_object(obj)
-    # sort_keys and no separators create a canonical representation
+    """Return a deterministic SHA-256 hash for a Python object.
+
+    Handles nested dicts, lists, and pandas DataFrames.
+    """
+    safe_obj = _json_safe_recursor(obj)
     encoded = json.dumps(safe_obj, sort_keys=True, separators=(",", ":")).encode()
     return hashlib.sha256(encoded).hexdigest()
+
+
+# --------------------------------------------------------------------------- #
+# Environment Capture Helpers                                                 #
+# --------------------------------------------------------------------------- #
+
+def get_library_versions() -> Dict[str, str]:
+    """Capture versions of key ML/data science libraries."""
+    wanted = {"scikit-learn", "pandas", "numpy", "tensorflow", "torch", "xgboost"}
+    versions: Dict[str, str] = {}
+    for dist in _im.distributions():
+        name = dist.metadata.get("Name") or ""
+        if name.lower() in wanted:
+            versions[name] = dist.version
+    return versions
+
+
+def get_hardware_specs() -> Dict[str, str]:
+    """Gather basic hardware specs (CPU, RAM, GPU)."""
+    cpu = platform.processor() or platform.machine()
+    ram = ""
+    # Defer psutil import as it's an optional dependency
+    try:
+        import psutil  # type: ignore
+
+        ram = f"{round(psutil.virtual_memory().total / 2**30)} GB"
+    except Exception:
+        pass # psutil not installed or failed
+    gpu = os.getenv("NVIDIA_VISIBLE_DEVICES", "")
+    return {"cpu": cpu, "gpu": gpu, "ram": ram}
