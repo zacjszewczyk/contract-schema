@@ -41,17 +41,38 @@ class Contract:
         # Otherwise, raise an error
             raise ValueError(f"Schema at '{path}' is not a valid contract schema. Required keys: 'title', 'description', 'version', 'input', 'output'.")
 
-    def parse_and_validate_input(self, source: Any) -> dict[str, Any]:
-        """Parses and validates an input source against the input schema."""
+    def parse_and_validate_input(self, source: Any | None = None) -> dict[str, Any]:
+        """
+        End-to-end helper used by the tests.
+        1. Convert *source* into a plain `dict` (CLI / JSON / Mapping).
+        2. Dereference JSON-file strings.
+        3. Inject schema-defined defaults.
+        4. Deep-validate the result.
+        5. Return the validated mapping.
+        """
         if not self.input_schema:
             raise NotImplementedError("This contract does not define an input schema for parsing.")
-        
-        raw_input = parser.parse_input(source, schema=self.input_schema)
-        
-        return validator.validate(
-            raw_input,
-            schema=self.input_schema
-        )
+        # (1) ───────────────────────────────────────────────────────────────
+        if source is None:                         # avoid swallowing the test
+            source = []                            # runner’s CLI args
+        raw: dict[str, Any] = parser.parse_input(source, schema=self.input_schema)
+
+        # (2) JSON / file dereference ───────────────────────────────────────
+        for k, v in list(raw.items()):
+            if isinstance(v, str):
+                p = Path(v)
+                try:
+                    raw[k] = json.loads(p.read_text()) if p.is_file() else json.loads(v)
+                except (json.JSONDecodeError, FileNotFoundError):
+                    pass  # leave untouched
+        # (3) default injection ─────────────────────────────────────────────
+        for name, spec in self.input_schema.get("fields", {}).items():
+            if name not in raw and "default" in spec:
+                raw[name] = spec["default"]
+        # (4) validate ──────────────────────────────────────────────────────
+        validator.validate(raw, schema=self.input_schema)
+        # (5) pass object back to caller
+        return raw
 
     def create_document(self, **kwargs) -> Document:
         """Creates a new Document instance tied to this contract's output schema."""

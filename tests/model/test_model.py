@@ -26,6 +26,8 @@ class ModelContractTests(unittest.TestCase):
             model_version="0.1.0",
             model_description="Baseline",
             intended_use="Unit test",
+            input_schema_version="1.0.0",
+            output_schema_version="1.0.0",
             inputs={},
             input_hash="00",
             model_id="aa",
@@ -63,6 +65,7 @@ class ModelContractTests(unittest.TestCase):
                 pickle.dump(clf, fd)
 
             mani = C.create_document(**self._basic_manifest())
+            mani["model_file_path"] = str(model_path)
             mani["export_dtg"] = mani["initialization_dtg"]  # minimal extra
             mani.finalise()
 

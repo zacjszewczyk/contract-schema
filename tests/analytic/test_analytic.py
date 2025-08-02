@@ -11,7 +11,6 @@ class AnalyticContractTests(unittest.TestCase):
     # --- parsing / defaults -------------------------------------------------
     def test_cli_roundtrip_defaults(self):
         cli = (
-            "--input-schema-version 1.0.0 "
             "--start-dtg 2025-06-01T00:00:00Z "
             "--end-dtg   2025-06-02T00:00:00Z "
             "--data-source-type file "
@@ -62,6 +61,8 @@ class AnalyticContractTests(unittest.TestCase):
             analytic_id="0",
             analytic_name="Unit test analytic",
             analytic_version="1.0",
+            input_schema_version="1.0.0",
+            output_schema_version="1.0.0",
             inputs=params,
             findings=[],
             status="success",
@@ -79,7 +80,7 @@ class AnalyticContractTests(unittest.TestCase):
             license="Test license"
         )
         doc.add_message("INFO", "integration-test")
-        time.sleep(0.01)                  # ensure runtime > 0
+        time.sleep(0.01) # ensure runtime > 0
         doc.finalise()
 
         with tmp_dir() as td:
