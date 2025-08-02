@@ -164,7 +164,9 @@ def parse_input(
 
     # CLI style – use argparse ---------------------------------------------
     parser = build_arg_parser(schema)
-    namespace, _ = parser.parse_known_args(argv)
+    namespace, unknown = parser.parse_known_args(argv)
+    if unknown:
+        raise ValueError(f"Unknown argument(s): {unknown}. Use --help.")
     ns_dict      = vars(namespace)
 
     # --config overrides everything else -----------------------------------
