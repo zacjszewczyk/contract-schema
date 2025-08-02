@@ -35,13 +35,23 @@ def _read(path: Path) -> Mapping[str, Any]:
 
 def load_schema(path: str | Path) -> dict:
     p = Path(path)
+
+    # 1) direct file on disk ------------------------------------------------
     if p.is_file():
         with p.open(encoding="utf-8") as fd:
             return copy.deepcopy(json.load(fd))
 
-    # fallback: treat `path` as a resource inside contract_schema.schemas
-    try:
-        text = resources.files("contract_schema.schemas").joinpath(path).read_text(encoding="utf-8")
-        return copy.deepcopy(json.loads(text))
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Schema '{path}' not found on disk or in package data")
+    # 2) bundled resource (exact string or basename) -----------------------
+    pkg = resources.files("contract_schema.schemas")
+    candidates = (Path(path).name, str(path))   # basename first, original second
+    for name in candidates:
+        try:
+            text = pkg.joinpath(name).read_text(encoding="utf-8")
+            return copy.deepcopy(json.loads(text))
+        except FileNotFoundError:
+            pass   # try the next candidate
+
+    # 3) give up -----------------------------------------------------------
+    raise FileNotFoundError(
+        f"Schema '{path}' not found on disk or in package data"
+    )
