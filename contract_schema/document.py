@@ -57,9 +57,9 @@ class Document(dict):
 
         # Schema versions
         if "input_schema_version" in self and "input_schema_version" in self.__schema.get("fields", {}):
-            self["input_schema_version"] = self.get("inputs", {}).get("input_schema_version", "UNKNOWN"))
+            self["input_schema_version"] = self.get("inputs", {}).get("input_schema_version", "UNKNOWN")
         if "output_schema_version" in self and "output_schema_version" in self.__schema.get("fields", {}):
-            self["output_schema_version"] = self.get("inputs", {}).get("output_schema_version", "UNKNOWN"))
+            self["output_schema_version"] = self.get("inputs", {}).get("output_schema_version", "UNKNOWN")
 
         # Hashes
         if "inputs" in self and "input_hash" in self.__schema.get("fields", {}):
