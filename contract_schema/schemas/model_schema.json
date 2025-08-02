@@ -7,6 +7,22 @@
         "type": "object",
         "description": "Parameter block passed to a script when executed.",
         "fields": {
+            "log_path": {
+                "type": [
+                    "string"
+                ],
+                "required": false,
+                "default": "stdout",
+                "description": "Filesystem path or stream for execution logs. Default 'stdout'. Supports 'stdout' and filestystem paths."
+            },
+            "output": {
+                "type": [
+                    "string"
+                ],
+                "required": false,
+                "default": "stdout",
+                "description": "Destination for the notebook’s findings. Supports 'stdout' or a file path."
+            },
             "verbosity": {
                 "type": [
                     "string"

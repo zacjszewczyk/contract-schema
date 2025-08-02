@@ -19,7 +19,8 @@ class Document(dict):
         super().__init__(**kwargs)
         self.__schema = schema
         self.__finalised = False
-        self["initialization_dtg"] = utils._now_iso()
+        if "initialization_dtg" in self and "initialization_dtg" in self.__schema.get("fields", {}):
+            self["initialization_dtg"] = utils._now_iso()
 
     def add_message(self, level: str, text: str) -> None:
         """Adds a timestamped log message to the document, if schema supports it."""
