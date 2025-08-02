@@ -1,0 +1,45 @@
+{
+  "title": "Contract Meta-Schema",
+  "description": "Minimal requirements that every contract schema must satisfy.",
+  "version": "0.1.0",
+  "type": "object",
+  "fields": {
+    "title": {
+      "type": ["string"],
+      "required": true
+    },
+    "version": {
+      "type": ["string"],
+      "required": true
+    },
+    "description": {
+      "type": ["string"],
+      "required": true
+    },
+    "input": {
+      "type": ["object"],
+      "required": true,
+      "fields": {
+        "fields": {
+          "type": ["object"],
+          "required": true,
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    },
+    "output": {
+      "type": ["object"],
+      "required": true,
+      "fields": {
+        "fields": {
+          "type": ["object"],
+          "required": true,
+          "additionalProperties": true
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
