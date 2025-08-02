@@ -1,5 +1,5 @@
 """
-contract.py – High-level API for interacting with schema contracts.
+contract.py - High-level API for interacting with schema contracts.
 """
 
 from __future__ import annotations
@@ -15,27 +15,33 @@ from .document import Document
 class Contract:
     """A high-level interface for a loaded input/output schema contract."""
 
-    def __init__(self, input_schema: dict | None, output_schema: dict, defaults: dict | None = None):
+    def __init__(self, title: str, description: str, version: str, input_schema: dict, output_schema: dict, defaults: dict | None = None):
         """Initializes the Contract with parsed schema definitions."""
+        self.title = title
+        self.description = description
+        self.version = version
         self.input_schema = input_schema
         self.output_schema = output_schema
         self.defaults = defaults or {}
 
     @classmethod
     def load(cls, path: str | Path) -> "Contract":
-        """Loads a schema from a JSON file and returns a Contract instance."""
+        """Loads a contract schema from a JSON file and returns a Contract instance."""
         schema_data = loader.load_schema(path)
-        
-        # Case 1: Analytic-style with explicit input/output/defaults keys
-        if "input" in schema_data and "output" in schema_data:
+
+        # Contract with explicit input/output/defaults keys
+        if (all(key in schema_data for key in ("title", "description", "version", "input", "output", "defaults"))):
+            # Pass all required arguments to the constructor
             return cls(
+                title=schema_data.get("title"),
+                description=schema_data.get("description"),
+                version=schema_data.get("version"),
                 input_schema=schema_data.get("input"),
                 output_schema=schema_data.get("output"),
-                defaults=schema_data.get("defaults")
+                defaults=schema_data.get("defaults", None)
             )
-        # Case 2: Model-style where the whole file is the output schema
-        else:
-            return cls(input_schema=None, output_schema=schema_data, defaults=None)
+        # Otherwise, raise an error
+            raise ValueError(f"Schema at '{path}' is not a valid contract schema. Required keys: 'title', 'description', 'version', 'input', 'output', 'defaults'.")
 
     def parse_and_validate_input(self, source: Any) -> dict[str, Any]:
         """Parses and validates an input source against the input schema."""
