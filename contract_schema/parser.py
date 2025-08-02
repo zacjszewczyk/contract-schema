@@ -79,16 +79,18 @@ def build_arg_parser(schema: Mapping[str, Any]) -> argparse.ArgumentParser:
         help="JSON file containing full input object; overrides all other flags.",
     )
 
-    # generate flags from schema -------------------------------------------
     for name, spec in schema.get("fields", {}).items():
-        flag = f"--{name.replace('_', '-')}"
-        kwargs: dict[str, Any] = {"dest": name, "help": spec.get("description", "")}
+        flag   = f"--{name.replace('_', '-')}"
+        types  = spec.get("type", "string")
+        types  = types if isinstance(types, list) else [types]
+        kwargs: dict[str, Any] = {
+            "dest": name,
+            "help": spec.get("description", "")
+        }
 
-        # determine type/action
-        types = spec.get("type", "string")
-        types = types if isinstance(types, list) else [types]
         if "boolean" in types:
-            kwargs["action"] = "store_true"
+            kwargs["action"]  = "store_true"
+            kwargs["default"] = argparse.SUPPRESS   # ← key change
         else:
             if "integer" in types:
                 kwargs["type"] = int
@@ -96,6 +98,7 @@ def build_arg_parser(schema: Mapping[str, Any]) -> argparse.ArgumentParser:
                 kwargs["type"] = float
             else:
                 kwargs["type"] = str
+            kwargs["default"] = argparse.SUPPRESS   # ← suppress for *all* flags
 
         if "enum" in spec:
             kwargs["choices"] = spec["enum"]
@@ -161,11 +164,8 @@ def parse_input(
 
     # CLI style – use argparse ---------------------------------------------
     parser = build_arg_parser(schema)
-    namespace, unknown = parser.parse_known_args(argv)
-    if unknown:
-        raise ValueError(f"Unknown argument(s): {unknown}. Use --help.")
-
-    ns_dict = {k: v for k, v in vars(namespace).items() if v is not None}
+    namespace, _ = parser.parse_known_args(argv)
+    ns_dict      = vars(namespace)
 
     # --config overrides everything else -----------------------------------
     if config_file := ns_dict.pop("config", None):

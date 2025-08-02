@@ -12,6 +12,7 @@ import copy
 import json
 from pathlib import Path
 from typing import Any, Mapping
+from importlib import resources
 
 # --------------------------------------------------------------------------- #
 # Helpers                                                                     #
@@ -33,18 +34,14 @@ def _read(path: Path) -> Mapping[str, Any]:
 # --------------------------------------------------------------------------- #
 
 def load_schema(path: str | Path) -> dict:
-    """
-    Return a **deep copy** of the requested schema.
+    p = Path(path)
+    if p.is_file():
+        with p.open(encoding="utf-8") as fd:
+            return copy.deepcopy(json.load(fd))
 
-    Parameters
-    ----------
-    path : Path | str
-        Path to the schema file to read.
-
-    Returns
-    -------
-    dict
-        Parsed JSON schema (deep-copied) so callers cannot mutate globals.
-    """
-    resolved_path = Path(path).expanduser().resolve()
-    return copy.deepcopy(_read(resolved_path))
+    # fallback: treat `path` as a resource inside contract_schema.schemas
+    try:
+        text = resources.files("contract_schema.schemas").joinpath(path).read_text(encoding="utf-8")
+        return copy.deepcopy(json.loads(text))
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Schema '{path}' not found on disk or in package data")
