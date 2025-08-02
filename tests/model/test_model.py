@@ -16,7 +16,8 @@ class ModelContractTests(unittest.TestCase):
 
     def _basic_manifest(self):
         return dict(
-            author_organization="Demo",
+            author="Demo Author",
+            author_organization="Demo Organization",
             contact="demo@example.com",
             documentation_link="https://example.com",
             license="MIT",
@@ -25,8 +26,11 @@ class ModelContractTests(unittest.TestCase):
             model_version="0.1.0",
             model_description="Baseline",
             intended_use="Unit test",
+            inputs={},
+            input_hash="00",
+            model_id="aa",
             limitations="None",
-            data_description="Iris",
+            dataset_description="Iris",
             data_schema={c: "float" for c in iris.feature_names},
             feature_names=iris.feature_names,
             target_variable="species",
@@ -45,6 +49,8 @@ class ModelContractTests(unittest.TestCase):
                 "test":     {"accuracy": 0.9},
             },
             training_duration_seconds=0.0,
+            status="success",
+            exit_code=0
         )
 
     def test_manifest_roundtrip(self):
