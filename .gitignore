@@ -9,3 +9,4 @@ example_model.py
 iris_rf.joblib
 tests/analytic/__pycache__/*
 tests/model/__pycache__/*
+iris_model_manifest.json
