@@ -52,7 +52,7 @@ class Document(dict):
             self["total_runtime_seconds"] = int((end_dt - init_dt).total_seconds())
         
         if "run_id" in self and "run_id" in self.__schema.get("fields", {}):
-            self["run_id"] = str(uuid.uuid4()))
+            self["run_id"] = str(uuid.uuid4())
 
         # Schema versions
         if "input_schema_version" in self and "input_schema_version" in self.__schema.get("fields", {}):
