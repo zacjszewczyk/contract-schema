@@ -7,7 +7,6 @@ import datetime as _dt
 import json
 from pathlib import Path
 from typing import Any, Mapping
-import uuid, socket, getpass
 
 from . import utils
 from . import validator
@@ -58,8 +57,6 @@ class Document(dict):
                 self[field] = value
         
         _maybe("run_id",               str(uuid.uuid4()))
-        _maybe("run_user",             getpass.getuser())
-        _maybe("run_host",             socket.gethostname())
         _maybe("run_start_dtg",        self["initialization_dtg"])
         _maybe("run_end_dtg",          self["finalization_dtg"])
         _maybe("run_duration_seconds", self["total_runtime_seconds"])
@@ -68,6 +65,7 @@ class Document(dict):
         _maybe("analytic_id",      "UNKNOWN")
         _maybe("analytic_name",    "UNKNOWN")
         _maybe("analytic_version", "UNKNOWN")
+        _maybe("output_schema_version", schema.get("version", "UNKNOWN"))
 
         # Schema versions
         inputs = self.get("inputs", {})
