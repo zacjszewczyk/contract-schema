@@ -60,11 +60,20 @@ class AnalyticContractTests(unittest.TestCase):
 
         doc = C.create_document(
             inputs=params,
-            input_data_hash="0" * 64,     # fake
             findings=[],
             status="success",
             exit_code=0,
-            records_processed=0,
+            analytic_description="Test analytic description",
+            author="Test author",
+            author_organization="Test author organization",
+            contact="Test contact",
+            data_schema={c: "float" for c in ["length", "width"]},
+            dataset_description="Test dataset description",
+            dataset_hash="00",
+            dataset_size=42,
+            documentation_link="Test documentation link",
+            feature_names=['feature 1, feature 2'],
+            license="Test license"
         )
         doc.add_message("INFO", "integration-test")
         time.sleep(0.01)                  # ensure runtime > 0

@@ -33,7 +33,7 @@ class ModelContractTests(unittest.TestCase):
             dataset_description="Iris",
             data_schema={c: "float" for c in iris.feature_names},
             feature_names=iris.feature_names,
-            target_variable="species",
+            target_feature="species",
             feature_engineering_pipeline=[],
             model_parameters={},
             dataset_size=len(iris.data),
