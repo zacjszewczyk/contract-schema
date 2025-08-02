@@ -21,7 +21,7 @@ dependencies = []    # core has no deps
 analytic = ["pandas>=1.0"]
 
 [tool.setuptools.package-data]
-"contract_schema" = ["../schemas/*.json"]
+"contract_schema" = [".schemas/*.json"]
 
 [project.urls]
 Homepage = "https://github.com/zacjszewczyk/contract-schema"

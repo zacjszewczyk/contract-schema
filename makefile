@@ -1,5 +1,5 @@
 # ──────────────────────────────────────────────────────────────────────────────
-# Makefile -- helper & packaging commands for model-schema
+# Makefile -- helper & packaging commands for contract-schema
 # ──────────────────────────────────────────────────────────────────────────────
 
 .PHONY: default help clean push pull build verify publish-test publish package
@@ -34,7 +34,7 @@ pull:
 	git -c http.sslverify=false pull gitlab master
 
 # ─── Packaging settings ──────────────────────────────────────────────────────
-PACKAGE_NAME := model-schema
+PACKAGE_NAME := contract-schema
 BUILD_DIR    := dist
 
 # ─── Clean up build artifacts ────────────────────────────────────────────────
