@@ -59,6 +59,9 @@ class AnalyticContractTests(unittest.TestCase):
         })
 
         doc = C.create_document(
+            analytic_id="0",
+            analytic_name="Unit test analytic",
+            analytic_version="1.0",
             inputs=params,
             findings=[],
             status="success",

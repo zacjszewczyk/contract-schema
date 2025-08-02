@@ -1,0 +1,520 @@
+{
+    "title": "Analytic Schema",
+    "description": "Standard analytic input and output schema.",
+    "version": "1.0.1",
+    "input": {
+        "title": "Analytics Input Schema",
+        "type": "object",
+        "description": "Parameter block passed to a script.",
+        "fields": {
+            "input_schema_version": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Semantic-version identifier for this input contract so runners can verify compatibility."
+            },
+            "start_dtg": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "format": "date-time",
+                "description": "Inclusive UTC timestamp (ISO 8601) marking the first data element to analyse."
+            },
+            "end_dtg": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "format": "date-time",
+                "description": "Exclusive UTC timestamp (ISO 8601) marking the end of the data window."
+            },
+            "data_source_type": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "enum": [
+                    "file",
+                    "IONIC",
+                    "api",
+                    "df"
+                ],
+                "description": "Transport mechanism used to retrieve data for the run."
+            },
+            "data_source": {
+                "type": [
+                    "string",
+                    "dataframe"
+                ],
+                "required": true,
+                "description": "Path, identifier, URL, or Pandas DataFrame that the runner will use to fetch the dataset (e.g., '/data/conn.csv', 'zeek_daily', 'https://api.example.com/logs', df)."
+            },
+            "log_path": {
+                "type": [
+                    "string"
+                ],
+                "required": false,
+                "default": "stdout",
+                "description": "Filesystem path or stream for execution logs. Default 'stdout'. Supports 'stdout' and filestystem paths."
+            },
+            "output": {
+                "type": [
+                    "string"
+                ],
+                "required": false,
+                "default": "stdout",
+                "description": "Destination for the notebook’s findings. Supports 'stdout' or a file path."
+            },
+            "analytic_parameters": {
+                "type": [
+                    "object",
+                    "string"
+                ],
+                "required": false,
+                "default": {},
+                "description": "Arbitrary JSON object or path to JSON file containing analytic-specific tuning knobs passed verbatim to the notebook."
+            },
+            "data_map": {
+                "type": [
+                    "object",
+                    "string"
+                ],
+                "required": false,
+                "default": {},
+                "description": "JSON object or file path that maps non-SchemaONE fields in the input data to their SchemaONE equivalents expected by the notebook."
+            },
+            "verbosity": {
+                "type": [
+                    "string"
+                ],
+                "required": false,
+                "enum": [
+                    "DEBUG",
+                    "INFO",
+                    "WARN",
+                    "ERROR",
+                    "FATAL"
+                ],
+                "default": "INFO",
+                "description": "Lowest log-severity level that will be emitted (default INFO)."
+            }
+        },
+        "additionalProperties": true
+    },
+    "output": {
+        "title": "Analytics Output Schema",
+        "type": "object",
+        "description": "Structured metadata and results emitted after execution.",
+        "fields": {
+            "input_schema_version": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Echo of the input contract version used for this run."
+            },
+            "initialization_dtg": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "format": "date-time",
+                "description": "UTC timestamp (ISO-8601) when the ModelManifest object was instantiated."
+            },
+            "finalization_dtg": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "format": "date-time",
+                "description": "UTC timestamp (ISO-8601) when ModelManifest.finalise() completed."
+            },
+            "total_runtime_seconds": {
+                "type": [
+                    "integer"
+                ],
+                "required": true,
+                "description": "Elapsed seconds between initialization_dtg and finalization_dtg."
+            },
+            "output_schema_version": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Semantic-version identifier for this output contract."
+            },
+            "run_id": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Globally unique identifier (UUID v4 recommended) assigned at run start."
+            },
+            "execution_environment": {
+                "type": [
+                    "object"
+                ],
+                "required": true,
+                "description": "Software and hardware context in which the model was trained.",
+                "fields": {
+                    "python_version": {
+                        "type": [
+                            "string"
+                        ],
+                        "required": true,
+                        "description": "Exact Python interpreter version (e.g., \"3.10.12\")."
+                    },
+                    "library_dependencies": {
+                        "type": [
+                            "object"
+                        ],
+                        "required": true,
+                        "description": "Map of critical libraries → exact versions (e.g., {\"scikit-learn\":\"1.3.0\"})."
+                    },
+                    "operating_system": {
+                        "type": [
+                            "string"
+                        ],
+                        "required": true,
+                        "description": "OS name and version the training ran on."
+                    },
+                    "username": {
+                        "type": [
+                            "string"
+                        ],
+                        "required": true,
+                        "description": "User account that executed the training script."
+                    },
+                    "hardware_specs": {
+                        "type": [
+                            "object"
+                        ],
+                        "required": true,
+                        "description": "Key hardware details (CPU, GPU, RAM).",
+                        "fields": {
+                            "cpu": {
+                                "type": [
+                                    "string"
+                                ],
+                                "required": true,
+                                "description": "The model of the central processing unit (CPU) used for training."
+                            },
+                            "gpu": {
+                                "type": [
+                                    "string"
+                                ],
+                                "required": false,
+                                "description": "The model of the graphics processing unit (GPU) used for training, if applicable."
+                            },
+                            "ram": {
+                                "type": [
+                                    "string"
+                                ],
+                                "required": true,
+                                "description": "The total system memory (RAM) available during training (e.g., '16GB')."
+                            }
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "additionalProperties": false
+            },
+            "author": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "The name of the primary author."
+            },
+            "author_organization": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "The name of the organization or institution of which the author was a part at the time of execution."
+            },
+            "contact": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "An email address or link for questions and comments."
+            },
+            "contributors": {
+                "type": [
+                    "object"
+                ],
+                "required": false,
+                "description": "A list of individuals who contributed to the project."
+            },
+            "license": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "The software license under which the code or outputs are released."
+            },
+            "documentation_link": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "A URL to a research paper, blog post, or other resource for more information."
+            },
+            "status": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "enum": [
+                    "success",
+                    "fail",
+                    "warning",
+                    "UNKNOWN"
+                ],
+                "description": "High-level execution outcome."
+            },
+            "exit_code": {
+                "type": [
+                    "integer"
+                ],
+                "required": true,
+                "description": "Process exit status (0 = success; non-zero = failure)."
+            },
+            "messages": {
+                "type": [
+                    "list"
+                ],
+                "required": false,
+                "description": "Ordered log entries generated during execution.",
+                "items": {
+                    "fields": {
+                        "timestamp": {
+                            "type": [
+                                "string"
+                            ],
+                            "format": "date-time",
+                            "required": true
+                        },
+                        "level": {
+                            "type": [
+                                "string"
+                            ],
+                            "enum": [
+                                "DEBUG",
+                                "INFO",
+                                "WARN",
+                                "ERROR",
+                                "FATAL"
+                            ],
+                            "required": true
+                        },
+                        "text": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "dataset_description": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Free-text overview of the dataset."
+            },
+            "dataset_size": {
+                "type": [
+                    "integer"
+                ],
+                "required": true,
+                "description": "Total rows in the full dataset."
+            },
+            "dataset_hash": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "SHA-256 hash of the full dataset."
+            },
+            "data_schema": {
+                "type": [
+                    "object"
+                ],
+                "required": true,
+                "description": "Map of feature names → expected data types."
+            },
+            "feature_names": {
+                "type": [
+                    "list"
+                ],
+                "subtype": "string",
+                "required": true,
+                "description": "Ordered list of features the model was trained on."
+            },
+            "inputs": {
+                "type": [
+                    "object"
+                ],
+                "required": true,
+                "description": "Verbatim copy of the input parameter object for auditability."
+            },
+            "input_hash": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "SHA-256 (or stronger) hash of the canonicalised inputs object proving immutability."
+            },
+            "analytic_id": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Canonical identifier or filesystem path of the executed analytic notebook."
+            },
+            "analytic_name": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Human-readable title of the analytic notebook."
+            },
+            "analytic_version": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "Semantic version of the notebook at execution time."
+            },
+            "analytic_description": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "A brief, human-readable summary of the analytic's purpose and function."
+            },
+            "findings": {
+                "type": [
+                    "list"
+                ],
+                "required": true,
+                "description": "Findings generated by the analytic.",
+                "items": {
+                    "fields": {
+                        "finding_id": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Unique identifier for the finding (UUID v4 recommended)."
+                        },
+                        "title": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Concise summary of the condition detected."
+                        },
+                        "description": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Detailed explanation of what was detected and why it matters."
+                        },
+                        "event_dtg": {
+                            "type": [
+                                "string"
+                            ],
+                            "format": "date-time",
+                            "required": true,
+                            "description": "ISO 8601-compliant UTC timestamp of the primary event that triggered the finding."
+                        },
+                        "severity": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Analyst-assessed impact level (e.g., 'low', 'medium', 'high', 'critical')."
+                        },
+                        "confidence": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Analyst-assessed probability that the finding is valid (percentage or qualitative scale)."
+                        },
+                        "observables": {
+                            "type": [
+                                "list"
+                            ],
+                            "subtype": "string",
+                            "required": true,
+                            "description": "Concrete artefacts (IP addresses, hashes, usernames, etc.) associated with the finding."
+                        },
+                        "mitre_attack_tactics": {
+                            "type": [
+                                "list"
+                            ],
+                            "subtype": "string",
+                            "required": true,
+                            "description": "MITRE ATT&CK tactic identifiers linked to the finding."
+                        },
+                        "mitre_attack_techniques": {
+                            "type": [
+                                "list"
+                            ],
+                            "subtype": "string",
+                            "required": true,
+                            "description": "MITRE ATT&CK technique identifiers linked to the finding."
+                        },
+                        "recommended_actions": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Guidance for immediate response or deeper investigation."
+                        },
+                        "recommended_pivots": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Suggested data sources or tools to pivot to for additional context."
+                        },
+                        "classification": {
+                            "type": [
+                                "string"
+                            ],
+                            "required": true,
+                            "description": "Marking that dictates data-handling requirements (e.g., 'U', 'CUI')."
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "findings_hash": {
+                "type": [
+                    "string"
+                ],
+                "required": true,
+                "description": "SHA-256 (or stronger) hash of the serialised findings array."
+            },
+            "additional_run_properties": {
+                "type": [
+                    "object"
+                ],
+                "required": false,
+                "description": "Arbitrary, user-supplied key-value metadata that applies to the entire run (e.g. CI job URL, git commit hash, ticket ID).",
+                "additionalProperties": true
+            }
+        },
+        "additionalProperties": false
+    }
+}

@@ -15,7 +15,6 @@ classifiers = [
   "License :: OSI Approved :: Apache Software License",
   "Operating System :: OS Independent"
 ]
-dependencies = []    # core has no deps
 
 [project.optional-dependencies]
 analytic = ["pandas>=1.0"]

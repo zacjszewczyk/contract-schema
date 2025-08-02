@@ -37,6 +37,9 @@ pull:
 PACKAGE_NAME := contract-schema
 BUILD_DIR    := dist
 
+test:
+	python3 -m unittest discover -s tests
+
 # ─── Clean up build artifacts ────────────────────────────────────────────────
 clean:
 	@echo "→ Removing build artifacts…"

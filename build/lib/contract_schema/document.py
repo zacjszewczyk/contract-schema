@@ -7,7 +7,6 @@ import datetime as _dt
 import json
 from pathlib import Path
 from typing import Any, Mapping
-import uuid, getpass
 
 from . import utils
 from . import validator
@@ -37,7 +36,7 @@ class Document(dict):
 
     def finalise(self) -> None:
         """Populate any schema-required meta-fields, then validate."""
-        if self.__finalised:
+        if self.__finalised:           # idempotent
             return
 
         # ------------------------------------------------------------------ #
@@ -45,7 +44,6 @@ class Document(dict):
         # ------------------------------------------------------------------ #
         now_iso                       = utils._now_iso()
         self["finalization_dtg"]      = now_iso
-        
         init_dt                       = _dt.datetime.fromisoformat(
                                            self["initialization_dtg"].replace("Z", "+00:00"))
         end_dt                        = _dt.datetime.fromisoformat(
@@ -59,6 +57,15 @@ class Document(dict):
                 self[field] = value
         
         _maybe("run_id",               str(uuid.uuid4()))
+        _maybe("run_start_dtg",        self["initialization_dtg"])
+        _maybe("run_end_dtg",          self["finalization_dtg"])
+        _maybe("run_duration_seconds", self["total_runtime_seconds"])
+
+        # Required analytic identifiers – fall back to placeholders
+        _maybe("analytic_id",      "UNKNOWN")
+        _maybe("analytic_name",    "UNKNOWN")
+        _maybe("analytic_version", "UNKNOWN")
+        _maybe("output_schema_version", schema.get("version", "UNKNOWN"))
 
         # Schema versions
         inputs = self.get("inputs", {})
@@ -66,7 +73,7 @@ class Document(dict):
             _maybe("input_schema_version",  inputs.get("input_schema_version", "UNKNOWN"))
         else:
             _maybe("input_schema_version",  "UNKNOWN")
-        _maybe("output_schema_version", self.__schema.get("version", "UNKNOWN"))
+        _maybe("output_schema_version",     "UNKNOWN")
 
         # Hashes (if their schema fields exist)
         if "inputs" in self and "input_hash" in self.__schema.get("fields", {}):
@@ -78,11 +85,16 @@ class Document(dict):
         # ------------------------------------------------------------------ #
         # Model-schema specific                                              #
         # ------------------------------------------------------------------ #
-        if ("model_file_hash" in self.__schema.get("fields", {}) and "model_file_hash" not in self):
+        if ("model_file_hash" in self.__schema.get("fields", {})
+                and "model_file_hash" not in self):
+            from pathlib import Path
             path_str = self.get("model_file_path") or self.get("model_path")
-            self["model_file_hash"] = (
-                utils._sha256(Path(path_str)) if path_str else "0" * 64
-            )
+            try:
+                self["model_file_hash"] = (
+                    utils._sha256(Path(path_str)) if path_str else "0" * 64
+                )
+            except Exception:
+                self["model_file_hash"] = "0" * 64  # placeholder
 
         # ------------------------------------------------------------------ #
         # Execution environment (common)                                     #
