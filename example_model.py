@@ -19,7 +19,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
-from contract_schema import Contract, utils    # pip install .
+from contract_schema import Contract, utils, to_markdown_card    # pip install .
 from contract_schema.validator import SchemaError
 
 # --------------------------------------------------------------------------- #
@@ -103,6 +103,7 @@ def main() -> None:
     doc.save("iris_model_manifest.json")
     print("✅  Saved model manifest → iris_model_manifest.json")
 
+    print(to_markdown_card(doc))
 
 if __name__ == "__main__":
     main()
