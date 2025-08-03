@@ -112,7 +112,7 @@ def parse_input(
         Supported variants:
         * ``Mapping`` - copied directly.
         * ``Path`` - JSON file on disk.
-        * ``str``  - interpreted as: existing file path → load; else JSON literal → load; else CLI string.
+        * ``str``  - interpreted as: existing file path to load; else JSON literal to load; else CLI string.
         * ``Sequence[str]`` - treated as CLI tokens.
         * ``None`` - default to ``sys.argv[1:]``.
     schema
@@ -122,7 +122,7 @@ def parse_input(
     -------
     dict
         Raw key-value mapping with only the options provided by the user.  If
-        ``--config`` is used the returned dict is exactly that file’s content.
+        ``--config`` is used the returned dict is exactly that file's content.
     """
 
     # Mapping - already dict-like ------------------------------------------
