@@ -7,11 +7,14 @@ dist/
 contract_schema.egg-info/
 .virtual_documents/
 
-# Files for testing in Jupyter lab
+# Artifacts from testing in Jupyter Lab
 .ipynb_checkpoints/
 Untitled.ipynb
 
-# Test output files
+# Artifacts from testing
 iris_rf.joblib
 iris_model_manifest.json
 iris_analytic_report.json
+
+# Artifacts from dev work
+digest.txt
