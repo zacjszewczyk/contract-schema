@@ -52,6 +52,37 @@ class ValidatorTests(unittest.TestCase):
 
         with self.assertRaises(SchemaError):
             validator.validate("not-a-date", schema=dt_schema)
+            
+    def test_implicit_object_type(self):
+        schema = {
+            "fields": { "key": {"type": "string", "required": True} }
+        }
+        # Should pass, as `type: "object"` is implied
+        validator.validate({"key": "value"}, schema=schema)
+        # Should fail for the same reason
+        with self.assertRaisesRegex(SchemaError, "expected \['object'\]"):
+            validator.validate("not-an-object", schema=schema)
+
+    def test_deeply_nested_error_path(self):
+        schema = {
+            "fields": {
+                "level1": {
+                    "type": "object",
+                    "fields": {
+                        "level2": {
+                            "type": "object",
+                            "fields": { "bad_field": { "type": "string" } }
+                        }
+                    }
+                }
+            }
+        }
+        bad_doc = {
+            "level1": { "level2": { "bad_field": 123 } } # incorrect type
+        }
+        with self.assertRaisesRegex(SchemaError, r"root\.level1\.level2\.bad_field: expected \['string'\]"):
+            validator.validate(bad_doc, schema=schema)
+
 
 class ValidatorAdditionalPropsTests(unittest.TestCase):
     def test_no_additional_properties_ok(self):

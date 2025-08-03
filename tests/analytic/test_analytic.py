@@ -44,25 +44,34 @@ class AnalyticContractTests(unittest.TestCase):
         self.assertEqual(out["analytic_parameters"], {"p": 1})
         tmp.unlink()
 
-    def test_external_file_dereference_bad_json(self):
-        fh = tempfile.NamedTemporaryFile(mode="w", delete=False)
-        fh.write("{ not json")
-        fh.close()
-        tmp_path = Path(fh.name)
-
+    def test_invalid_type_for_dereferenceable_field(self):
         raw = self._get_base_payload()
-        raw["analytic_parameters"] = 1
-        try:
-            with self.assertRaises(ValueError):
-                C.parse_and_validate_input(raw)
-        finally:
-            tmp_path.unlink()
+        # This type is invalid (neither string nor object) and should fail validation.
+        raw["analytic_parameters"] = 12345
+        with self.assertRaises(SchemaError):
+            C.parse_and_validate_input(raw)
 
 
     # --- integration: create + finalise Document ---------------------------
     def test_document_end_to_end(self):
         # minimal valid params
         params = C.parse_and_validate_input(self._get_base_payload())
+        
+        # A minimal but schema-compliant finding
+        finding = {
+            "finding_id": "1",
+            "title": "Test Finding",
+            "description": "A test finding.",
+            "event_dtg": "2025-08-03T12:00:00Z",
+            "severity": "low",
+            "confidence": "low",
+            "observables": [],
+            "mitre_attack_tactics": [],
+            "mitre_attack_techniques": [],
+            "recommended_actions": "None",
+            "recommended_pivots": "None",
+            "classification": "U"
+        }
 
         doc = C.create_document(
             analytic_id="0",
@@ -71,7 +80,7 @@ class AnalyticContractTests(unittest.TestCase):
             input_schema_version="1.0.0",
             output_schema_version="1.0.0",
             inputs=params,
-            findings=[],
+            findings=[finding],
             status="success",
             exit_code=0,
             analytic_description="Test analytic description",
@@ -96,6 +105,10 @@ class AnalyticContractTests(unittest.TestCase):
             self.assertTrue(out_path.is_file())
             loaded = json.loads(out_path.read_text())
             self.assertIn("total_runtime_seconds", loaded)
+            self.assertIn("input_hash", loaded)
+            self.assertIn("findings_hash", loaded)
+            self.assertIsNotNone(loaded["input_hash"])
+            self.assertIsNotNone(loaded["findings_hash"])
 
     def test_create_document_with_invalid_data_fails(self):
         doc = C.create_document(analytic_id=123) # Wrong type

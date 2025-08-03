@@ -56,6 +56,19 @@ class ParserTests(unittest.TestCase):
         out = parser.parse_input(cli, schema=schema)
         self.assertEqual(out["num_records"], 100)
 
+    def test_parse_cli_with_boolean_flag(self):
+        schema = self.schema.copy()
+        schema["fields"]["enable_feature"] = {"type": ["boolean"]}
+        cli_with_flag = ["--enable-feature"]
+        cli_without_flag = []
+        
+        out_with_flag = parser.parse_input(cli_with_flag, schema=schema)
+        self.assertTrue(out_with_flag["enable_feature"])
+
+        out_without_flag = parser.parse_input(cli_without_flag, schema=schema)
+        self.assertNotIn("enable_feature", out_without_flag)
+
+
     def test_unknown_argument_raises(self):
         with self.assertRaises(ValueError):
             parser.parse_input(["--unknown", "x"], schema=self.schema)

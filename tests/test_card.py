@@ -14,7 +14,7 @@ class CardTests(unittest.TestCase):
         self.assertIn("## Title", md)
         self.assertIn("Example", md)
         self.assertIn("- 1", md)              # list item
-        self.assertIn("**a**: 1", md)         # nested mapping rendered
+        self.assertIn("- **a**: 1", md)        # nested mapping rendered
 
     def test_to_markdown_card_with_empty_values(self):
         data = {
@@ -46,7 +46,17 @@ class CardTests(unittest.TestCase):
         self.assertIn("- {'item': 1, 'status': 'A'}", md)
         self.assertIn("- {'item': 2, 'status': 'B'}", md)
 
-
     def test_to_markdown_card_empty_input(self):
         md = to_markdown_card({})
         self.assertEqual(md.strip(), "")
+
+    def test_to_markdown_card_heading_level(self):
+        data = {"Test": "Value"}
+        md = to_markdown_card(data, heading_level=4)
+        self.assertIn("#### Test", md)
+
+    def test_to_markdown_card_nested_list_flattening(self):
+        data = {"nested": [["a", "b"], ["c"]]}
+        md = to_markdown_card(data)
+        self.assertIn("- a, b", md)
+        self.assertIn("- c", md)
