@@ -58,8 +58,8 @@ def main() -> None:
     # Build manifest                                                     #
     # ------------------------------------------------------------------ #
     doc = contract.create_document(
-        input_schema_version=contract.output_schema["version"],
-        output_schema_version=contract.output_schema["version"],
+        input_schema_version=contract.version,
+        output_schema_version=contract.version,
         author="Zac Szewczyk",
         author_organization="Example Org",
         contact="zac@example.com",

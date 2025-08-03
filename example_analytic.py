@@ -41,8 +41,8 @@ df: pd.DataFrame = iris.frame
 inputs = C.parse_and_validate_input({
     "start_dtg":        now,
     "end_dtg":          now,
-    "data_source_type": "df",
-    "data_source":      df,          # we can pass a DataFrame directly
+    "data_source_type": "file",
+    "data_source":      "iris.frame",          # we can pass a DataFrame directly
     # log_path / output / analytic_parameters / data_map / verbosity fall back
     # to schema defaults injected by parse_and_validate_input()
 })
