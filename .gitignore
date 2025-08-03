@@ -5,7 +5,6 @@ dist/
 contract_schema.egg-info/
 .virtual_documents/
 Untitled.ipynb
-example_model.py
 iris_rf.joblib
 tests/analytic/__pycache__/*
 tests/model/__pycache__/*
