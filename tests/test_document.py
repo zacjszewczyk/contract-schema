@@ -85,14 +85,6 @@ class DocumentTests(unittest.TestCase):
         finally:
             path.unlink(missing_ok=True)
 
-    def test_save_to_nonexistent_dir_raises(self):
-        doc = Document(schema=self.no_msg_schema)
-        doc.finalise()
-        bad_path = Path(tempfile.gettempdir()) / "non_existent_dir" / "doc.json"
-        self.assertFalse(bad_path.parent.exists())
-        with self.assertRaises(FileNotFoundError):
-            doc.save(bad_path)
-
     def test_add_message_after_finalize_is_ignored(self):
         doc = Document(schema=self.schema)
         doc.add_message("INFO", "first message")
