@@ -6,13 +6,13 @@ description = "Standardised inputs and outputs based on contract files."
 readme = "README.md"
 version = "1.0.0"
 requires-python = ">=3.8"
-license = { file = "LICENSE.md" }
+license-file = { file = "LICENSE.md" }
 authors = [
   { name="Zachary Szewczyk", email="zacjszewczyk@gmail.com" }
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License",
+  "License-Expression :: LicenseRef-Special-License",
   "Operating System :: OS Independent"
 ]
 
