@@ -25,11 +25,11 @@ class AnalyticContractTests(unittest.TestCase):
             "input_schema_version": "1.0.0",
             "start_dtg": "2025-06-01T00:00:00Z",
             "end_dtg":   "2025-06-02T00:00:00Z",
-            "data_source_type": "df",
-            "data_source": DF,
+            "data_source_type": "file",
+            "data_source": "dataframe",
         }
         out = C.parse_and_validate_input(raw)
-        self.assertTrue(out["data_source"].equals(DF))
+        self.assertTrue(out["data_source"] == "dataframe")
 
     # --- deref JSON file ----------------------------------------------------
     def test_external_file_dereference(self):
