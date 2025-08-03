@@ -1,5 +1,5 @@
 """
-utils.py – shared, low-level utilities for the contract-schema package.
+utils.py - shared, low-level utilities for the contract-schema package.
 
 This module consolidates common helpers for:
 - Hashing (files and JSON-safe Python objects)

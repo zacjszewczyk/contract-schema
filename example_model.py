@@ -5,8 +5,8 @@ conforming to *model_schema.json*.
 
 Outputs
 -------
-iris_rf.joblib            – serialized model
-iris_model_manifest.json  – fully-validated contract document
+iris_rf.joblib - serialized model
+iris_model_manifest.json - fully-validated contract document
 """
 from __future__ import annotations
 
@@ -70,7 +70,7 @@ def main() -> None:
         ),
         status="success",
         exit_code=0,
-        dataset_description="Fisher’s Iris flower dataset (1936).",
+        dataset_description="Fisher's Iris flower dataset (1936).",
         dataset_size=len(X),
         dataset_hash=utils._hash(X),
         data_schema={c: "number" for c in X.columns},
@@ -92,16 +92,16 @@ def main() -> None:
         metrics={"accuracy": round(acc, 4)},
         training_duration_seconds=round(train_secs, 2),
         export_dtg=utils._now_iso(),
-        model_file_path=str(model_path),   # ← lets finalise() hash the file
+        model_file_path=str(model_path),   # lets finalise() hash the file
     )
 
     try:
         doc.finalise()
     except SchemaError as exc:
-        sys.exit(f"❌  Manifest failed validation:\n{exc}")
+        sys.exit(f"Manifest failed validation:\n{exc}")
 
     doc.save("iris_model_manifest.json")
-    print("✅  Saved model manifest → iris_model_manifest.json")
+    print("Saved model manifest - iris_model_manifest.json")
 
     print(to_markdown_card(doc))
 

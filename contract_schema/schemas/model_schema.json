@@ -21,7 +21,7 @@
                 ],
                 "required": false,
                 "default": "stdout",
-                "description": "Destination for the notebook’s findings. Supports 'stdout' or a file path."
+                "description": "Destination for the notebook's findings. Supports 'stdout' or a file path."
             },
             "verbosity": {
                 "type": [
@@ -108,7 +108,7 @@
                             "object"
                         ],
                         "required": true,
-                        "description": "Map of critical libraries → exact versions (e.g., {\"scikit-learn\":\"1.3.0\"})."
+                        "description": "Map of critical libraries with exact versions (e.g., {\"scikit-learn\":\"1.3.0\"})."
                     },
                     "operating_system": {
                         "type": [
@@ -284,7 +284,7 @@
                     "object"
                 ],
                 "required": true,
-                "description": "Map of feature names → expected data types."
+                "description": "Map of feature names to expected data types."
             },
             "feature_names": {
                 "type": [
@@ -469,7 +469,7 @@
                     "object"
                 ],
                 "required": true,
-                "description": "Key-value map of metric name → value(s) relevant to the learning task.",
+                "description": "Key-value map of metric name to value(s) relevant to the learning task.",
                 "additionalProperties": true
             },
             "training_duration_seconds": {

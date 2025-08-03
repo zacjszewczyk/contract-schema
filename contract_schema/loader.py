@@ -1,9 +1,9 @@
 """
-loader.py – single source-of-truth for the packaged JSON contract.
+loader.py - single source-of-truth for the packaged JSON contract.
 
 Public API
 ----------
-load_schema()    : function       – helper to obtain a fresh copy
+load_schema() : function helper to obtain a fresh copy
 """
 
 from __future__ import annotations

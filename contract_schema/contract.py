@@ -35,7 +35,7 @@ class Contract:
             meta = loader.load_schema("contract_meta_schema.json")
             from . import validator
             validator.validate(schema_data, schema=meta)
-        except Exception as exc:               # SchemaError, FileNotFoundError, …
+        except Exception as exc:
             raise ValueError(
                 f"Schema at '{path}' does not satisfy contract_meta_schema.json: {exc}"
             ) from exc
@@ -62,12 +62,10 @@ class Contract:
         """
         if not self.input_schema:
             raise NotImplementedError("This contract does not define an input schema for parsing.")
-        # (1) ───────────────────────────────────────────────────────────────
         if source is None:                         # avoid swallowing the test
-            source = []                            # runner’s CLI args
+            source = []                            # runner's CLI args
         raw: dict[str, Any] = parser.parse_input(source, schema=self.input_schema)
 
-        # (2) JSON / file dereference ───────────────────────────────────────
         for k, v in list(raw.items()):
             if isinstance(v, str):
                 p = Path(v)
@@ -75,13 +73,10 @@ class Contract:
                     raw[k] = json.loads(p.read_text()) if p.is_file() else json.loads(v)
                 except (json.JSONDecodeError, FileNotFoundError):
                     pass  # leave untouched
-        # (3) default injection ─────────────────────────────────────────────
         for name, spec in self.input_schema.get("fields", {}).items():
             if name not in raw and "default" in spec:
                 raw[name] = spec["default"]
-        # (4) validate ──────────────────────────────────────────────────────
         validator.validate(raw, schema=self.input_schema)
-        # (5) pass object back to caller
         return raw
 
     def create_document(self, **kwargs) -> Document:

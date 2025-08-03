@@ -32,7 +32,7 @@ def to_markdown_card(data: Mapping[str, Any], *, heading_level: int = 2) -> str:
         Any mapping whose values are JSON-serialisable (schema output or
         `schema["output"]["fields"]`).
     heading_level : int, default 2
-        Markdown heading level for top-level keys (##, ###, …).
+        Markdown heading level for top-level keys (##, ###).
 
     Returns
     -------
@@ -44,7 +44,7 @@ def to_markdown_card(data: Mapping[str, Any], *, heading_level: int = 2) -> str:
     for key, value in data.items():
         parts.append(f"{h} {key.replace('_', ' ').title()}")
         if isinstance(value, Mapping):
-            # one extra indent → sub-bullets
+            # one extra indent -> sub-bullets
             sub = _format_list([f"**{k}**: {_format_scalar(v)}" for k, v in value.items()])
             parts.append(sub)
         elif isinstance(value, Sequence) and not isinstance(value, (str, bytes)):

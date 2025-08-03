@@ -1,10 +1,10 @@
 """
-parser.py – generic command‑line / JSON / mapping input loader
+parser.py - generic command-line / JSON / mapping input loader
 ================================================================
 
 This helper replaces the previous *dual* versions that were bound to
 `analytic_schema` and `model_schema`.  It works with **any** schema that
-follows the same JSON‑Schema‑lite pattern:
+follows the same JSON-Schema-lite pattern:
 
 Public API
 ----------
@@ -12,10 +12,10 @@ Public API
     Construct an `argparse` instance with flags derived from *schema*.
 
 `parse_input(source=None, *, schema) -> dict`
-    Convert user‑supplied *source* (CLI string / Path / JSON literal / Mapping)
+    Convert user-supplied *source* (CLI string / Path / JSON literal / Mapping)
     into a plain `dict` following the *schema* field names.
 
-Both functions are schema‑agnostic; callers must pass in the schema mapping –
+Both functions are schema-agnostic; callers must pass in the schema mapping -
 you can obtain one via :pymod:`model_schema.loader.load_schema` or any other
 means.
 """
@@ -40,7 +40,7 @@ def build_arg_parser(schema: Mapping[str, Any]) -> argparse.ArgumentParser:
     ----------
     schema : Mapping[str, Any]
         A parsed JSON contract containing at least keys ``description`` and
-        ``fields``.  The function inspects every top‑level field and exposes a
+        ``fields``.  The function inspects every top-level field and exposes a
         ``--<field-name>`` CLI flag with the appropriate ``type`` / ``choices``.
     """
 
@@ -78,7 +78,7 @@ def build_arg_parser(schema: Mapping[str, Any]) -> argparse.ArgumentParser:
 
         if "boolean" in types:
             kwargs["action"]  = "store_true"
-            kwargs["default"] = argparse.SUPPRESS   # ← key change
+            kwargs["default"] = argparse.SUPPRESS
         else:
             if "integer" in types:
                 kwargs["type"] = int
@@ -86,7 +86,7 @@ def build_arg_parser(schema: Mapping[str, Any]) -> argparse.ArgumentParser:
                 kwargs["type"] = float
             else:
                 kwargs["type"] = str
-            kwargs["default"] = argparse.SUPPRESS   # ← suppress for *all* flags
+            kwargs["default"] = argparse.SUPPRESS
 
         if "enum" in spec:
             kwargs["choices"] = spec["enum"]
@@ -110,26 +110,26 @@ def parse_input(
     ----------
     source
         Supported variants:
-        * ``Mapping`` – copied directly.
-        * ``Path`` – JSON file on disk.
-        * ``str``  – interpreted as: existing file path → load; else JSON literal → load; else CLI string.
-        * ``Sequence[str]`` – treated as CLI tokens.
-        * ``None`` – default to ``sys.argv[1:]``.
+        * ``Mapping`` - copied directly.
+        * ``Path`` - JSON file on disk.
+        * ``str``  - interpreted as: existing file path → load; else JSON literal → load; else CLI string.
+        * ``Sequence[str]`` - treated as CLI tokens.
+        * ``None`` - default to ``sys.argv[1:]``.
     schema
-        The schema to drive CLI flag generation when *source* is CLI‑style.
+        The schema to drive CLI flag generation when *source* is CLI-style.
 
     Returns
     -------
     dict
-        Raw key‑value mapping with only the options provided by the user.  If
+        Raw key-value mapping with only the options provided by the user.  If
         ``--config`` is used the returned dict is exactly that file’s content.
     """
 
-    # Mapping – already dict‑like ------------------------------------------
+    # Mapping - already dict-like ------------------------------------------
     if isinstance(source, Mapping):
         return dict(source)
 
-    # Path – read JSON file -------------------------------------------------
+    # Path - read JSON file -------------------------------------------------
     if isinstance(source, Path):
         return json.loads(source.read_text(encoding="utf-8"))
 
@@ -150,7 +150,7 @@ def parse_input(
     else:
         raise TypeError(f"Unsupported type for parse_input: {type(source)}")
 
-    # CLI style – use argparse ---------------------------------------------
+    # CLI style - use argparse ---------------------------------------------
     parser = build_arg_parser(schema)
     namespace, unknown = parser.parse_known_args(argv)
     if unknown:

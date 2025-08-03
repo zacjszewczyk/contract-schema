@@ -1,4 +1,4 @@
-# pyproject.toml – contract-schema
+# pyproject.toml contract-schema
 
 [project]
 name = "contract-schema"

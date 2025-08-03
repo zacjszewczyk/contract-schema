@@ -1,5 +1,5 @@
 """
-contract_schema – A toolkit for schema-driven document generation and validation.
+contract_schema - A toolkit for schema-driven document generation and validation.
 """
 from .contract import Contract
 from .document import Document

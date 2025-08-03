@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 """
 example_analytic.py
-───────────────────
 Demonstrates how to use *contract_schema* with the packaged analytic contract.
 
 The script:
@@ -10,7 +9,7 @@ The script:
 2. Builds a minimal, schema-valid analytic **input** object.
 3. Passes it through `Contract.parse_and_validate_input()` (so all CLI / JSON /
    default logic is exercised).
-4. Computes a trivial “finding” (class-distribution summary).
+4. Computes a trivial finding (class-distribution summary).
 5. Creates an output `Document`, lets `finalise()` inject hashes, timing,
    run-ID, execution-environment, etc.
 6. Saves `iris_analytic_report.json`.
@@ -49,7 +48,7 @@ inputs = C.parse_and_validate_input({
 })
 
 # --------------------------------------------------------------------------- #
-# 3.  Derive a single “finding”                                               #
+# 3.  Derive a single finding                                               #
 # --------------------------------------------------------------------------- #
 class_counts = df["target"].value_counts().to_dict()
 findings = [{
@@ -71,7 +70,7 @@ findings = [{
 # 4.  Build the analytic OUTPUT document                                      #
 # --------------------------------------------------------------------------- #
 doc = C.create_document(
-    # ─ required provenance --------------------------------------------------
+    # required provenance --------------------------------------------------
     input_schema_version="1.0.1",
     output_schema_version=C.version,
     author="Zac Szewczyk",
@@ -83,15 +82,15 @@ doc = C.create_document(
     status="success",
     exit_code=0,
 
-    # ─ dataset metadata -----------------------------------------------------
-    dataset_description="Fisher’s Iris flower data set treated as row-level "
+    # dataset metadata -----------------------------------------------------
+    dataset_description="Fisher's Iris flower data set treated as row-level "
                         "events for a toy analytic.",
     dataset_size=len(df),
     dataset_hash=utils._hash(df),
     data_schema={**{c: "number" for c in iris.feature_names}, "target": "integer"},
     feature_names=iris.feature_names,
 
-    # ─ analytic metadata ----------------------------------------------------
+    # analytic metadata ----------------------------------------------------
     inputs=inputs,                     # verbatim, for auditability
     analytic_id=str(Path(__file__).resolve()),
     analytic_name="Iris class distribution",
@@ -99,7 +98,7 @@ doc = C.create_document(
     analytic_description="Demonstration analytic that summarises the "
                          "distribution of species in the Iris data set.",
 
-    # ─ findings -------------------------------------------------------------
+    # findings -------------------------------------------------------------
     findings=findings,
 )
 
@@ -112,6 +111,6 @@ doc["additional_run_properties"] = {"class_counts": class_counts}
 doc.finalise()
 outfile = Path("iris_analytic_report.json")
 doc.save(outfile)
-print(f"✅  Analytic report written to {outfile.resolve()}")
+print(f"Analytic report written to {outfile.resolve()}")
 
 print(to_markdown_card(doc))

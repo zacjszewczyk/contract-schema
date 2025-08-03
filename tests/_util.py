@@ -17,7 +17,7 @@ MODEL_C      = cs.Contract.load(MODEL_J)
 
 # ---- tiny helpers ----------------------------------------------------------
 def tmp_json(obj: Any) -> Path:
-    """Write *obj* to a temp-file – return the Path (caller must unlink)."""
+    """Write *obj* to a temp-file --> return the Path (caller must unlink)."""
     fh = tempfile.NamedTemporaryFile(delete=False, suffix=".json")
     Path(fh.name).write_text(json.dumps(obj), encoding="utf-8")
     return Path(fh.name)

@@ -1,10 +1,10 @@
 """
-validator.py – unified, schema‑agnostic validation utilities
+validator.py - unified, schema-agnostic validation utilities
 ===========================================================
 
-This file merges the *input‑schema* and *output‑schema* validators into a
+This file merges the *input-schema* and *output-schema* validators into a
 single engine that you can point at **any** contract that follows the same
-compact JSON‑Schema‑lite conventions used across *analytic_schema* and
+compact JSON-Schema-lite conventions used across *analytic_schema* and
 *model_schema*.
 
 Public API
@@ -13,7 +13,7 @@ SchemaError
     Exception raised for any contract violation.
 
 validate(doc: Mapping, *, schema: Mapping[str, Any], path: str = "root")
-    Depth‑first validation that enforces type, enum, format, required fields,
+    Depth-first validation that enforces type, enum, format, required fields,
     additionalProperties, list item validation, etc.
 
 The old *specialised* helpers (`validate_input`, `validate_manifest`) can now
@@ -49,12 +49,12 @@ class SchemaError(ValueError):
 def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> None:
     """Recursively assert that *value* satisfies *schema*.
 
-    The function implements the minimal‑viable subset of JSON‑Schema required
+    The function implements the minimal-viable subset of JSON-Schema required
     by our contracts:
 
     * ``type`` (list or scalar)
     * ``enum``
-    * ``format: date‑time``
+    * ``format: date-time``
     * object validation via ``fields`` / ``required`` / ``additionalProperties``
     * list validation via ``items`` or custom ``subtype`` shorthand
     """
