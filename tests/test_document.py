@@ -1,11 +1,12 @@
 import tempfile
 import time
 import unittest
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
 from contract_schema.document import Document
-
+from contract_schema import utils
 
 class DocumentTests(unittest.TestCase):
     def setUp(self):
@@ -13,6 +14,10 @@ class DocumentTests(unittest.TestCase):
             "title": "Unit-Test Output",
             "type": "object",
             "fields": {
+                "run_id": {"type": ["string"]},
+                "execution_environment": {"type": ["object"]},
+                "inputs": {"type": ["object"]},
+                "input_hash": {"type": ["string"]},
                 "initialization_dtg": {"type": ["string"], "format": "date-time", "required": True},
                 "finalization_dtg":   {"type": ["string"], "format": "date-time", "required": True},
                 "total_runtime_seconds": {"type": ["integer"], "required": True},
@@ -97,7 +102,6 @@ class DocumentTests(unittest.TestCase):
         doc.add_message("INFO", "too late")
         self.assertEqual(len(doc["messages"]), 1)
 
-
     def test_add_message_not_supported_raises(self):
         doc = Document(schema=self.no_msg_schema)
         with self.assertRaises(NotImplementedError):
@@ -116,3 +120,34 @@ class DocumentTests(unittest.TestCase):
             doc.save(p)  # still allowed
         finally:
             p.unlink(missing_ok=True)
+
+    # ------------------------------------------------------------------ #
+    # Core metadata assertions                                           #
+    # ------------------------------------------------------------------ #
+    def test_finalise_injects_run_id_env_and_hash(self):
+        inputs = {"param": "value"}
+        doc = Document(schema=self.schema, inputs=inputs)
+
+        init_dt = datetime.fromisoformat(doc["initialization_dtg"].replace("Z", "+00:00"))
+        self.assertLess(abs((datetime.now(timezone.utc) - init_dt).total_seconds()), 5)
+
+        doc.finalise()
+
+        # --- run_id ------------------------------------------------------
+        self.assertIn("run_id", doc)
+        # Valid UUID?
+        uuid_obj = uuid.UUID(doc["run_id"])
+        self.assertEqual(str(uuid_obj), doc["run_id"])
+
+        # --- execution_environment --------------------------------------
+        env = doc.get("execution_environment")
+        self.assertIsInstance(env, dict)
+        self.assertIn("python_version", env)
+        self.assertIn("operating_system", env)
+
+        # --- input_hash --------------------------------------------------
+        expected_hash = utils._hash(inputs)
+        self.assertEqual(doc["input_hash"], expected_hash)
+
+        # --- runtime seconds --------------------------------------------
+        self.assertGreaterEqual(doc["total_runtime_seconds"], 0)
