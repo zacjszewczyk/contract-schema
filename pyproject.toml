@@ -4,7 +4,7 @@
 name = "contract-schema"
 description = "Standardised inputs and outputs based on contract files."
 readme = "README.md"
-version = "0.1.0"
+version = "0.2.0"
 requires-python = ">=3.8"
 license = { file = "LICENSE.md" }
 authors = [
@@ -12,7 +12,7 @@ authors = [
 ]
 classifiers = [
   "Programming Language :: Python :: 3",
-  "License :: OSI Approved :: Apache Software License",
+  "License :: Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License",
   "Operating System :: OS Independent"
 ]
 
