@@ -1,10 +1,8 @@
-# Project title
+# Contract Schema
 
-**Required.** Brief overview of the project, ideally one sentence.
+Contract Schema is a lightweight Python package for schema-driven, structured inputs and outputs.
 
 ## Table of Contents
-
-**Required.** This serves to make navigating through (potentially) long documents easier. No explanation is necessary in the final product; remove this line.
 
 * [**Description**](#description)
 * [**Dependencies**](#dependencies)
@@ -18,41 +16,75 @@
 
 ## Description
 
-**Required.** A more detailed overview of the project, but not so detailed as to be confused with detailed documentation. This section may include a link to more in-depth resources, such as a white paper, article, or actual documentation.
+Contract Schema unifies disparate I/O layers under one authoritative contract. A single, versioned JSON file defines both the permissible inputs and the required outputs; the library takes care of CLI generation, default handling, deep validation, and rich, provenance-aware output documents.
+
+* **Input parsing:** Every field in the contract automatically becomes an `argparse` flag, a JSON key, and a CLI flag, with type enforcement, enums, and sensible defaults injected.  
+* **Output construction:** The same contract defines the structure of your result document. A helper class injects run metadata, hashes inputs and findings for auditability, and captures execution environment details.  
+* **Meta-schema validation:** A bundled _meta-schema_ ensures every contract you write contains the minimal top-level keys (`title`, `version`, `description`, `input`, `output`) and that both `input` and `output` sections themselves declare a `fields` block. Contract mistakes are caught at load time.  
+* **No heavy dependencies:** Only the Python standard library (≥ 3.8) is required. `pandas` is optional and used only when you pass a DataFrame directly as an input.  
+
+The result is a single source of truth for I/O that works anywhere Python runs: CI pipelines, air-gapped analysis workstations, or serverless functions.
 
 ## Dependencies
 
-**Optional.** Explanation of project dependencies, or a simple statement that the project has no dependencies if appropriate. Required for development projects; optional for all others.
+* **Required:** Python ≥ 3.8  
+
+No other external packages are needed.
 
 ## Installation
 
-**Optional.** Installation instructions for the project. This may include as little as a ``git clone`` command, or as much as a multi-step process. Required for development projects; optional for all others.
+```
+pip install contract-schema
+```
 
 ## Usage
 
-**Optional.** Usage instructions for the project. This should consist of code blocks illustrating common usage followed by brief explanations. A good rule of thumb is taking a new user from zero to functional with the project. Required for development projects; optional for all others.
+Check out `example_analytic.py` and `example_model.py` for detailed examples of Contract Schema in action.
 
 ## Project structure
 
-**Required.** High-level overview of the project’s structure. Use this section to obviate the need for new users to dig through folders to uncover critical files or components.
-
 ```
-./repo
-|_ README.md # This file.
-|
-|_
-|
-|_ makefile # Project makefile
-|_ LICENSE.md # Project license.
+contract-schema/        # Repository root
+├── README.md            # This file
+│
+├── contract_schema/     # Python package
+│   ├── __init__.py
+│   ├── contract.py      # High-level Contract class
+│   ├── document.py      # Schema-aware Document builder
+│   ├── loader.py        # JSON loader with resource fallback
+│   ├── parser.py        # CLI / JSON / Mapping input parser
+│   ├── validator.py     # Lightweight JSON-schema validator
+│   ├── utils.py         # Shared helpers (hashing, timestamps, etc.)
+│   └── schemas/         # Bundled contracts
+│       ├── analytic_schema.json
+│       ├── model_schema.json
+│       └── contract_meta_schema.json
+│
+├── example_analytic.py  # End-to-end demo script for the analytic contract
+├── example_model.py  # End-to-end demo script for the model contract
+│
+├── tests/               # Unit tests
+│   ├── analytic/
+│   ├── model/
+│   └── meta/
+│
+├── makefile             # Project makefile
+├── LICENSE.md           # License
+└── pyproject.toml       # Build metadata
 ```
 
 ## Background and Motivation
 
-**Required.** Describe any background necessary to understand this project, as well as the motivator that prompted it.
+Security analytics, ML pipelines, and data engineering jobs often reinvent the wheel for argument parsing and result emission. Over time, field names diverge, validation drifts, and downstream systems break.
+
+Contract Schema solves this by treating the contract itself as code—version-controlled, validated, and consumed at runtime.
+
+* Uniformity — All tools speak the same language defined by the contract.
+* Reliability — Inputs and outputs are validated deeply; failures happen fast and loudly.
+* Traceability — Documents include run IDs, environment snapshots, and SHA-256 hashes of both inputs and outputs.
+* Extensibility — Write new contracts (e.g., for data ingestion) and they instantly get CLI generation, validation, and output helpers—no new code needed.
 
 ## Contributing
-
-**Optional.** Describe how to contribute to the project. This section should seek to lower the barrier to collaboration.
 
 Contributions are welcome from all, regardless of rank or position.
 
@@ -69,11 +101,9 @@ You may also contribute to this project using your local machine by cloning this
 
 ## Contributors
 
-**Optional.** Use this section to recognize contributors.
-
 This section lists project contributors. When you submit a merge request, remember to append your name to the bottom of the list below. You may also include a brief list of the sections to which you contributed.
 
-* **Creator:** 
+* **Creator:** Zachary Szewczyk
 
 ## License
 
