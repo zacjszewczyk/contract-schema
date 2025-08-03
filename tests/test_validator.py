@@ -43,3 +43,20 @@ class ValidatorTests(unittest.TestCase):
 
         with self.assertRaises(SchemaError):
             validator.validate("not-a-date", schema=dt_schema)
+
+class ValidatorAdditionalPropsTests(unittest.TestCase):
+    def setUp(self):
+        self.schema = {
+            "type": "object",
+            "fields": {
+                "val": {"type": ["string"], "required": True},
+            },
+            "additionalProperties": False,
+        }
+
+    def test_no_additional_properties_ok(self):
+        validator.validate({"val": "x"}, schema=self.schema)  # passes
+
+    def test_extra_property_raises(self):
+        with self.assertRaises(SchemaError):
+            validator.validate({"val": "x", "extra": 1}, schema=self.schema)

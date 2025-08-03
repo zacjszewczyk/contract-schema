@@ -32,3 +32,15 @@ class LoaderTests(unittest.TestCase):
     def test_load_schema_not_found(self):
         with self.assertRaises(FileNotFoundError):
             loader.load_schema("does_not_exist.json")
+
+    def test_invalid_json_raises_value_error(self):
+        with tempfile.NamedTemporaryFile("w+", delete=False) as tmp:
+            tmp.write("{not json")  # malformed
+            tmp.flush()
+            p = Path(tmp.name)
+
+        try:
+            with self.assertRaises(ValueError):
+                loader.load_schema(p)
+        finally:
+            p.unlink(missing_ok=True)

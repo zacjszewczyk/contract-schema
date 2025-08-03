@@ -1,6 +1,10 @@
+import copy
+import json
+import tempfile
 import unittest
+from pathlib import Path
 
-from contract_schema import Contract
+from contract_schema import Contract, loader
 
 
 class ContractTests(unittest.TestCase):
@@ -29,3 +33,18 @@ class ContractTests(unittest.TestCase):
         doc = self.contract.create_document()
         from contract_schema.document import Document
         self.assertIsInstance(doc, Document)
+
+    def test_contract_load_fails_when_meta_schema_broken(self):
+        bad = copy.deepcopy(loader.load_schema("analytic_schema.json"))
+        bad.pop("description")  # violate meta-schema
+
+        with tempfile.NamedTemporaryFile("w+", delete=False) as tmp:
+            json.dump(bad, tmp)
+            tmp.flush()
+            p = Path(tmp.name)
+
+        try:
+            with self.assertRaises(ValueError):
+                Contract.load(p)
+        finally:
+            p.unlink(missing_ok=True)

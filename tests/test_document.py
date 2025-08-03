@@ -31,6 +31,16 @@ class DocumentTests(unittest.TestCase):
             },
             "additionalProperties": False,
         }
+        self.no_msg_schema = {
+            "title": "NoMsg",
+            "type":  "object",
+            "fields": {
+                "initialization_dtg": {"type": ["string"], "format": "date-time", "required": True},
+                "finalization_dtg":   {"type": ["string"], "format": "date-time", "required": True},
+                "total_runtime_seconds": {"type": ["integer"], "required": True},
+            },
+            "additionalProperties": False,
+        }
 
     def test_document_full_lifecycle(self):
         doc = Document(schema=self.schema)
@@ -69,3 +79,22 @@ class DocumentTests(unittest.TestCase):
                 doc.save(path)
         finally:
             path.unlink(missing_ok=True)
+
+    def test_add_message_not_supported_raises(self):
+        doc = Document(schema=self.no_msg_schema)
+        with self.assertRaises(NotImplementedError):
+            doc.add_message("INFO", "boom")
+
+    def test_finalize_is_idempotent(self):
+        doc = Document(schema=self.no_msg_schema)
+        doc.finalise()
+        # Call again – should silently noop, not raise
+        doc.finalise()
+
+        with tempfile.NamedTemporaryFile("w+", delete=False) as tmp:
+            p = Path(tmp.name)
+
+        try:
+            doc.save(p)  # still allowed
+        finally:
+            p.unlink(missing_ok=True)

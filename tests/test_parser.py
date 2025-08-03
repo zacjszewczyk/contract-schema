@@ -51,3 +51,26 @@ class ParserTests(unittest.TestCase):
     def test_unknown_argument_raises(self):
         with self.assertRaises(ValueError):
             parser.parse_input(["--unknown", "x"], schema=self.schema)
+
+class ParserConfigTests(unittest.TestCase):
+    def setUp(self):
+        self.schema = loader.load_schema("analytic_schema.json")["input"]
+        self.base   = {
+            "start_dtg":        "2025-01-01T00:00:00Z",
+            "end_dtg":          "2025-01-02T00:00:00Z",
+            "data_source_type": "file",
+            "data_source":      "/tmp/x",
+        }
+
+    def test_config_flag_overrides_everything(self):
+        with tempfile.NamedTemporaryFile("w+", delete=False) as tmp:
+            json.dump(self.base, tmp)
+            tmp.flush()
+            cfg = Path(tmp.name)
+
+        try:
+            cli = ["--config", str(cfg), "--start-dtg", "BAD"]  # ignored
+            out = parser.parse_input(cli, schema=self.schema)
+            self.assertEqual(out, self.base)
+        finally:
+            cfg.unlink(missing_ok=True)
