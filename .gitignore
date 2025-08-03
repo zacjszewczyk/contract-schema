@@ -1,12 +1,17 @@
-.ipynb_checkpoints/
-contract_schema/__pycache__/
+# Artifacts from imports
+__pycache__
+
+# Packaging directories
 build/
 dist/
 contract_schema.egg-info/
 .virtual_documents/
+
+# Files for testing in Jupyter lab
+.ipynb_checkpoints/
 Untitled.ipynb
+
+# Test output files
 iris_rf.joblib
-tests/analytic/__pycache__/*
-tests/model/__pycache__/*
 iris_model_manifest.json
 iris_analytic_report.json
