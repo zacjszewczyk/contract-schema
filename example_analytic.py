@@ -24,6 +24,10 @@ from sklearn.datasets import load_iris
 
 from contract_schema import Contract, utils, to_markdown_card
 
+import logging
+log = logging.getLogger("contract_schema.examples")
+logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)s %(message)s")
+
 # --------------------------------------------------------------------------- #
 # 1.  Load contract                                                           #
 # --------------------------------------------------------------------------- #
@@ -111,6 +115,10 @@ doc["additional_run_properties"] = {"class_counts": class_counts}
 doc.finalise()
 outfile = Path("iris_analytic_report.json")
 doc.save(outfile)
-print(f"Analytic report written to {outfile.resolve()}")
 
-print(to_markdown_card(doc))
+log.info(f"Output document written to {outfile.resolve()}")
+
+outfile = Path("iris_analytic_report.md")
+with open(outfile, "w") as f:
+    f.write(to_markdown_card(doc))
+log.info(f"Output report written to {outfile.resolve()}")

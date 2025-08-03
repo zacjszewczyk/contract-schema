@@ -90,7 +90,9 @@ class Document(dict):
         if not self.__finalised:
             raise RuntimeError("Document must be finalised() before saving.")
         
-        Path(path).write_text(
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
             json.dumps(self, indent=indent, ensure_ascii=False), 
             encoding="utf-8"
         )

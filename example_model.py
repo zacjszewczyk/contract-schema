@@ -22,6 +22,10 @@ from sklearn.model_selection import train_test_split
 from contract_schema import Contract, utils, to_markdown_card    # pip install .
 from contract_schema.validator import SchemaError
 
+import logging
+log = logging.getLogger("contract_schema.examples")
+logging.basicConfig(level="INFO", format="%(asctime)s %(levelname)s %(message)s")
+
 # --------------------------------------------------------------------------- #
 # Main                                                                        #
 # --------------------------------------------------------------------------- #
@@ -101,9 +105,12 @@ def main() -> None:
         sys.exit(f"Manifest failed validation:\n{exc}")
 
     doc.save("iris_model_manifest.json")
-    print("Saved model manifest - iris_model_manifest.json")
+    log.info("Saved model manifest - iris_model_manifest.json")
 
-    print(to_markdown_card(doc))
+    outfile = Path("iris_model_report.md")
+    with open(outfile, "w") as f:
+        f.write(to_markdown_card(doc))
+    log.info(f"Output report written to {outfile.resolve()}")
 
 if __name__ == "__main__":
     main()
