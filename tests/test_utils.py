@@ -8,9 +8,13 @@ class UtilsTests(unittest.TestCase):
     def test_hash_is_deterministic_and_unique(self):
         obj1 = {"a": 1, "b": [2, 3]}
         obj2 = {"a": 1}
+        obj3 = {"b": [2, 3], "a": 1} # Order shouldn't matter
+        obj4 = {"a": 1, "b": [2, 3, {"c": 4}]} # Deeper object
 
         self.assertEqual(_hash(obj1), _hash(obj1))
+        self.assertEqual(_hash(obj1), _hash(obj3))
         self.assertNotEqual(_hash(obj1), _hash(obj2))
+        self.assertNotEqual(_hash(obj1), _hash(obj4))
 
     def test_is_datetime_various_inputs(self):
         good = [
@@ -18,7 +22,7 @@ class UtilsTests(unittest.TestCase):
             "2023-01-02T03:04:05+00:00",
             "2024-12-31T23:59:59-05:00",
         ]
-        bad = ["not-dt", "2025-13-01T00:00:00Z", 42]
+        bad = ["not-dt", "2025-13-01T00:00:00Z", 42, "2025-08-03T12:00:00"] # Missing timezone
 
         for g in good:
             self.assertTrue(_is_datetime(g), g)
@@ -32,5 +36,12 @@ class UtilsTests(unittest.TestCase):
         try:
             self.assertEqual(_sha256(f), sha256_bytes(buf))
             self.assertTrue(re.fullmatch(r"[0-9a-f]{64}", _sha256(f)))
+        finally:
+            f.unlink(missing_ok=True)
+
+    def test_sha256_empty_file(self):
+        f = tmp_bytes_file(b"")
+        try:
+            self.assertEqual(_sha256(f), sha256_bytes(b""))
         finally:
             f.unlink(missing_ok=True)

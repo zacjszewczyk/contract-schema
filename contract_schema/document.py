@@ -23,6 +23,9 @@ class Document(dict):
             self["initialization_dtg"] = utils._now_iso()
 
     def add_message(self, level: str, text: str) -> None:
+        if (self.__finalised == True):
+            return None
+
         """Adds a timestamped log message to the document, if schema supports it."""
         if "messages" not in self.__schema.get("fields", {}):
             raise NotImplementedError("This document's schema does not support 'messages'.")

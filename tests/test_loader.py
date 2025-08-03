@@ -44,3 +44,13 @@ class LoaderTests(unittest.TestCase):
                 loader.load_schema(p)
         finally:
             p.unlink(missing_ok=True)
+
+    def test_empty_file_raises_value_error(self):
+        with tempfile.NamedTemporaryFile("w+", delete=False) as tmp:
+            p = Path(tmp.name) # File is created but empty
+
+        try:
+            with self.assertRaises(ValueError):
+                loader.load_schema(p)
+        finally:
+            p.unlink(missing_ok=True)

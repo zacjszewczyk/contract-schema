@@ -1,4 +1,4 @@
-import unittest, json, pickle, tempfile
+import unittest, json, pickle, tempfile, copy
 from pathlib import Path
 import sklearn.dummy
 import pandas as pd
@@ -6,6 +6,8 @@ from sklearn.datasets import load_iris
 from sklearn.model_selection import train_test_split
 
 from tests._util import MODEL_C as C, tmp_dir
+from contract_schema.validator import SchemaError
+
 
 iris   = load_iris(as_frame=True)
 X_tr, X_te, y_tr, y_te = train_test_split(
@@ -74,3 +76,22 @@ class ModelContractTests(unittest.TestCase):
             self.assertTrue(json_path.is_file())
             doc = json.loads(json_path.read_text())
             self.assertEqual(doc["model_type"], "Dummy")
+            # Check for the correct, auto-populated hash key
+            self.assertIn("model_file_hash", doc)
+            self.assertIsNotNone(doc["model_file_hash"])
+
+
+    def test_create_manifest_with_invalid_data_fails(self):
+        bad_manifest = self._basic_manifest()
+        bad_manifest.pop("model_type") # remove required field
+        doc = C.create_document(**bad_manifest)
+        with self.assertRaises(SchemaError):
+            doc.finalise() # Validation happens here
+
+    def test_finalize_with_nonexistent_model_file_raises(self):
+        manifest_data = self._basic_manifest()
+        mani = C.create_document(**manifest_data)
+        mani["model_file_path"] = "/tmp/this/path/does/not/exist.pkl"
+        mani["export_dtg"] = mani["initialization_dtg"]
+        with self.assertRaises(FileNotFoundError):
+            mani.finalise()

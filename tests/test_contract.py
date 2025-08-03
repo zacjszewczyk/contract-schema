@@ -5,6 +5,7 @@ import unittest
 from pathlib import Path
 
 from contract_schema import Contract, loader
+from contract_schema.validator import SchemaError
 
 
 class ContractTests(unittest.TestCase):
@@ -28,6 +29,12 @@ class ContractTests(unittest.TestCase):
         self.assertEqual(out["log_path"], "stdout")
         self.assertEqual(out["output"], "stdout")
         self.assertEqual(out["verbosity"], "INFO")
+
+    def test_parse_and_validate_fails_on_invalid_data(self):
+        bad_payload = self.payload.copy()
+        bad_payload.pop("start_dtg")  # Remove a required field
+        with self.assertRaises(SchemaError):
+            self.contract.parse_and_validate_input(bad_payload)
 
     def test_create_document_returns_instance(self):
         doc = self.contract.create_document()

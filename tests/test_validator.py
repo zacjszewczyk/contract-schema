@@ -1,5 +1,5 @@
 import unittest
-
+import re
 from contract_schema import validator
 from contract_schema.validator import SchemaError
 
@@ -13,6 +13,7 @@ class ValidatorTests(unittest.TestCase):
                 "name":  {"type": ["string"],  "required": True},
                 "count": {"type": ["integer"], "required": True, "enum": [1, 2, 3]},
                 "tags":  {"type": ["list"],    "subtype": "string", "required": False},
+                "extra": {"type": ["string", "null"], "required": False}, # Allow null
             },
             "additionalProperties": False,
         }
@@ -21,20 +22,28 @@ class ValidatorTests(unittest.TestCase):
         obj = {"name": "foo", "count": 1}
         validator.validate(obj, schema=self.schema)  # should not raise
 
+    def test_valid_object_with_null_passes(self):
+        obj = {"name": "foo", "count": 1, "extra": None}
+        validator.validate(obj, schema=self.schema)  # should not raise
+
     def test_missing_required_field_raises(self):
-        with self.assertRaises(SchemaError):
+        with self.assertRaisesRegex(SchemaError, "root: missing required"):
             validator.validate({"count": 1}, schema=self.schema)
 
     def test_enum_violation_raises(self):
-        with self.assertRaises(SchemaError):
+        with self.assertRaisesRegex(SchemaError, "not in"):
             validator.validate({"name": "foo", "count": 5}, schema=self.schema)
+
+    def test_wrong_type_raises(self):
+        with self.assertRaisesRegex(SchemaError, r"root\.name: expected \['string'\], got int"):
+            validator.validate({"name": 123, "count": 1}, schema=self.schema)
 
     def test_list_subtype_enforcement(self):
         good = {"name": "foo", "count": 2, "tags": ["a", "b"]}
         validator.validate(good, schema=self.schema)
 
         bad = {"name": "foo", "count": 2, "tags": [1, 2]}
-        with self.assertRaises(SchemaError):
+        with self.assertRaisesRegex(SchemaError, r"root\.tags\[0\]: expected \['string'\], got int"):
             validator.validate(bad, schema=self.schema)
 
     def test_datetime_format_handling(self):
@@ -45,18 +54,27 @@ class ValidatorTests(unittest.TestCase):
             validator.validate("not-a-date", schema=dt_schema)
 
 class ValidatorAdditionalPropsTests(unittest.TestCase):
-    def setUp(self):
-        self.schema = {
+    def test_no_additional_properties_ok(self):
+        schema = {
             "type": "object",
-            "fields": {
-                "val": {"type": ["string"], "required": True},
-            },
+            "fields": {"val": {"type": ["string"], "required": True}},
             "additionalProperties": False,
         }
+        validator.validate({"val": "x"}, schema=schema)  # passes
 
-    def test_no_additional_properties_ok(self):
-        validator.validate({"val": "x"}, schema=self.schema)  # passes
+    def test_extra_property_raises_when_disallowed(self):
+        schema = {
+            "type": "object",
+            "fields": {"val": {"type": ["string"], "required": True}},
+            "additionalProperties": False,
+        }
+        with self.assertRaisesRegex(SchemaError, "unexpected fields"):
+            validator.validate({"val": "x", "extra": 1}, schema=schema)
 
-    def test_extra_property_raises(self):
-        with self.assertRaises(SchemaError):
-            validator.validate({"val": "x", "extra": 1}, schema=self.schema)
+    def test_extra_property_ok_when_allowed(self):
+        schema = {
+            "type": "object",
+            "fields": {"val": {"type": ["string"], "required": True}},
+            "additionalProperties": True,
+        }
+        validator.validate({"val": "x", "extra": 1}, schema=schema) # passes
