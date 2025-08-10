@@ -148,6 +148,12 @@ class DocumentTests(unittest.TestCase):
 
         # --- runtime seconds --------------------------------------------
         self.assertGreaterEqual(doc["total_runtime_seconds"], 0)
+
+    def test_add_message_has_docstring(self):
+        """Regression: ensure add_message exposes its docstring."""
+        self.assertIsNotNone(Document.add_message.__doc__)
+        self.assertIn("timestamped log message", Document.add_message.__doc__)
+        
     def test_finalise_missing_initialization_dtg_raises(self):
         schema = {
             "title": "MissingInit",
