@@ -1,9 +1,9 @@
 import tempfile
-import time
 import unittest
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from contract_schema.document import Document
 from contract_schema import utils
@@ -48,32 +48,37 @@ class DocumentTests(unittest.TestCase):
         }
 
     def test_document_full_lifecycle(self):
-        doc = Document(schema=self.schema)
+        start_dt = datetime(2024, 1, 1, tzinfo=timezone.utc)
+        msg_dt = start_dt + timedelta(seconds=1)
+        end_dt = start_dt + timedelta(seconds=123)
+        iso_times = [t.isoformat() for t in (start_dt, msg_dt, end_dt)]
 
-        # Auto-populated field
-        self.assertIn("initialization_dtg", doc)
-        init = datetime.fromisoformat(doc["initialization_dtg"].replace("Z", "+00:00"))
-        self.assertLess(abs((datetime.now(timezone.utc) - init).total_seconds()), 5)
+        with patch("contract_schema.utils._now_iso", side_effect=iso_times):
+            doc = Document(schema=self.schema)
 
-        # Message handling
-        doc.add_message("info", "hello world")
-        self.assertEqual(len(doc["messages"]), 1)
-        self.assertEqual(doc["messages"][0]["level"], "INFO")
+            # Auto-populated field
+            self.assertIn("initialization_dtg", doc)
+            self.assertEqual(doc["initialization_dtg"], iso_times[0])
 
-        # Finalization & runtime calculation
-        time.sleep(1)
-        doc.finalise()
-        self.assertIn("finalization_dtg", doc)
-        self.assertGreaterEqual(doc["total_runtime_seconds"], 1)
+            # Message handling
+            doc.add_message("info", "hello world")
+            self.assertEqual(len(doc["messages"]), 1)
+            self.assertEqual(doc["messages"][0]["level"], "INFO")
 
-        # Persistence
-        with tempfile.NamedTemporaryFile("r+b", delete=False) as tmp:
-            path = Path(tmp.name)
-        try:
-            doc.save(path)
-            self.assertGreater(len(path.read_text()), 0)
-        finally:
-            path.unlink(missing_ok=True)
+            # Finalization & runtime calculation
+            doc.finalise()
+            self.assertIn("finalization_dtg", doc)
+            expected_runtime = int((end_dt - start_dt).total_seconds())
+            self.assertEqual(doc["total_runtime_seconds"], expected_runtime)
+
+            # Persistence
+            with tempfile.NamedTemporaryFile("r+b", delete=False) as tmp:
+                path = Path(tmp.name)
+            try:
+                doc.save(path)
+                self.assertGreater(len(path.read_text()), 0)
+            finally:
+                path.unlink(missing_ok=True)
 
     def test_save_without_finalize_raises(self):
         doc = Document(schema=self.schema)
@@ -144,7 +149,7 @@ class DocumentTests(unittest.TestCase):
         # --- runtime seconds --------------------------------------------
         self.assertGreaterEqual(doc["total_runtime_seconds"], 0)
 
-        def test_add_message_has_docstring(self):
+    def test_add_message_has_docstring(self):
         """Regression: ensure add_message exposes its docstring."""
         self.assertIsNotNone(Document.add_message.__doc__)
         self.assertIn("timestamped log message", Document.add_message.__doc__)
