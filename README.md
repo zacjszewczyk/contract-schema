@@ -97,7 +97,7 @@ There are no system requirements for contributing to this project. To contribute
 5. Select the "Create a new branch" radio button if you do not already have your own branch; otherwise, select your branch. The recommended naming convention for new branches is ``first.middle.last``.
 6. Click the green "Commit" button.
 
-You may also contribute to this project using your local machine by cloning this repository to your workstation, creating a new branch, commiting and pushing your changes, and creating a merge request.
+You may also contribute to this project using your local machine by cloning this repository to your workstation, creating a new branch, committing and pushing your changes, and creating a merge request.
 
 ## Contributors
 
