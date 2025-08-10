@@ -23,10 +23,13 @@ class Document(dict):
             self["initialization_dtg"] = utils._now_iso()
 
     def add_message(self, level: str, text: str) -> None:
-        if (self.__finalised == True):
-            return None
+        """Adds a timestamped log message to the document, if schema supports it.
 
-        """Adds a timestamped log message to the document, if schema supports it."""
+        If this document has already been finalised, the message will not be
+        recorded.
+        """
+        if self.__finalised:
+            return None
         if "messages" not in self.__schema.get("fields", {}):
             raise NotImplementedError("This document's schema does not support 'messages'.")
         
@@ -51,9 +54,24 @@ class Document(dict):
             self["finalization_dtg"] = now_iso
         
         if "total_runtime_seconds" in self.__schema.get("fields", {}):
-            init_dt = _dt.datetime.fromisoformat(self["initialization_dtg"].replace("Z", "+00:00"))
-            end_dt = _dt.datetime.fromisoformat(self["finalization_dtg"].replace("Z", "+00:00"))
-            self["total_runtime_seconds"] = int((end_dt - init_dt).total_seconds())
+            init_dtg = self.get("initialization_dtg")
+            final_dtg = self.get("finalization_dtg")
+            if init_dtg and final_dtg:
+                init_dt = _dt.datetime.fromisoformat(init_dtg.replace("Z", "+00:00"))
+                end_dt = _dt.datetime.fromisoformat(final_dtg.replace("Z", "+00:00"))
+                self["total_runtime_seconds"] = int((end_dt - init_dt).total_seconds())
+            else:
+                missing = [
+                    field
+                    for field, value in (
+                        ("initialization_dtg", init_dtg),
+                        ("finalization_dtg", final_dtg),
+                    )
+                    if value is None
+                ]
+                raise KeyError(
+                    "Cannot compute total_runtime_seconds without: " + ", ".join(missing)
+                )
         
         if "run_id" in self.__schema.get("fields", {}):
             self["run_id"] = str(uuid.uuid4())
@@ -93,6 +111,6 @@ class Document(dict):
         path = Path(path)
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(
-            json.dumps(self, indent=indent, ensure_ascii=False), 
+            json.dumps(self, indent=indent, ensure_ascii=False),
             encoding="utf-8"
         )
