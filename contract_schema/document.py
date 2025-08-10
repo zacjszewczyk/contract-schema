@@ -23,21 +23,32 @@ class Document(dict):
             self["initialization_dtg"] = utils._now_iso()
 
     def add_message(self, level: str, text: str) -> None:
-        if (self.__finalised == True):
-            return None
+        """Add a timestamped log message to the document, if supported.
 
-        """Adds a timestamped log message to the document, if schema supports it."""
+        The method is a no-op once :meth:`finalise` has been called and the
+        document is immutable.  When the underlying schema lacks a ``messages``
+        field a :class:`NotImplementedError` is raised to signal that the
+        feature isn't available for the current contract.
+        """
+
+        if self.__finalised:
+            return
+
         if "messages" not in self.__schema.get("fields", {}):
-            raise NotImplementedError("This document's schema does not support 'messages'.")
-        
+            raise NotImplementedError(
+                "This document's schema does not support 'messages'."
+            )
+
         if "messages" not in self:
             self["messages"] = []
-        
-        self["messages"].append({
-            "timestamp": utils._now_iso(),
-            "level": level.upper(),
-            "text": text,
-        })
+
+        self["messages"].append(
+            {
+                "timestamp": utils._now_iso(),
+                "level": level.upper(),
+                "text": text,
+            }
+        )
 
     def finalise(self) -> None:
         """Populate select meta fields, then validate."""
