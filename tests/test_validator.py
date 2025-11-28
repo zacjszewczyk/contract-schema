@@ -26,6 +26,17 @@ class ValidatorTests(unittest.TestCase):
         obj = {"name": "foo", "count": 1, "extra": None}
         validator.validate(obj, schema=self.schema)  # should not raise
 
+    def test_null_only_type_accepts_none_rejects_others(self):
+        """Verify that type: ['null'] only accepts None values."""
+        null_only_schema = {"type": ["null"]}
+        
+        # None should pass
+        validator.validate(None, schema=null_only_schema)
+        
+        # Other types should fail
+        with self.assertRaisesRegex(SchemaError, r"expected \['null'\], got str"):
+            validator.validate("string", schema=null_only_schema)
+
     def test_missing_required_field_raises(self):
         with self.assertRaisesRegex(SchemaError, "root: missing required"):
             validator.validate({"count": 1}, schema=self.schema)
@@ -60,7 +71,7 @@ class ValidatorTests(unittest.TestCase):
         # Should pass, as `type: "object"` is implied
         validator.validate({"key": "value"}, schema=schema)
         # Should fail for the same reason
-        with self.assertRaisesRegex(SchemaError, "expected \['object'\]"):
+        with self.assertRaisesRegex(SchemaError, r"expected \['object'\]"):
             validator.validate("not-an-object", schema=schema)
 
     def test_deeply_nested_error_path(self):

@@ -109,6 +109,7 @@ _TYPE_MAP: dict[str, Union[type, Tuple[type, ...]]] = {
     "boolean": bool,
     "object": dict,
     "list": list,
+    "null": type(None),
 }
 
 # Add optional pandas support
