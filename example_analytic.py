@@ -218,13 +218,19 @@ log.info("  First row src_ip: %s, dst_ip: %s",
 
 # Demonstrate setting ALL input fields (required + optional)
 # Note: The data_map field stores the mapping configuration for audit purposes
+# For this demonstration, we show BOTH:
+#   1. The field mapping demonstration using simulated Zeek data (zeek_sample_data)
+#   2. The actual analysis on the Iris dataset (df)
+# In a real workflow, you would typically work with one data source
 inputs = C.parse_and_validate_input(
     {
         # --- Required fields ---------------------------------------------------
         "start_dtg": now_iso,  # Inclusive UTC timestamp (ISO 8601) for data window start
         "end_dtg": now_iso,  # Exclusive UTC timestamp (ISO 8601) for data window end
         "data_source_type": "file",  # Transport mechanism: "file", "IONIC", or "api"
-        "data_source": "zeek_conn.log",  # Path/identifier/URL for the dataset
+        # The data_source reflects the Zeek data used in the mapping demo above
+        # while the actual Iris analysis uses iris.frame (both for demonstration)
+        "data_source": "zeek_conn.log (demo), iris.frame (analysis)",
 
         # --- Optional fields (with defaults shown) -----------------------------
         "log_path": "stdout",  # (optional) Where to write execution logs; default: "stdout"
