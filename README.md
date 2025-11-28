@@ -39,7 +39,92 @@ pip install contract-schema
 
 ## Usage
 
-Check out `example_analytic.py` and `example_model.py` for detailed examples of Contract Schema in action.
+Contract Schema supports two primary workflows: **analytics** (security/data analysis pipelines) and **models** (machine learning model training manifests). Both follow the same pattern:
+
+1. Load a contract from a bundled JSON schema
+2. Parse and validate inputs against the contract
+3. Build an output document that conforms to the contract
+4. Finalize and save the document
+
+### Quick Start
+
+```python
+from contract_schema import Contract
+
+# Load the analytic contract (bundled with the package)
+contract = Contract.load("analytic_schema.json")
+
+# Parse and validate inputs (from dict, JSON file, or CLI args)
+inputs = contract.parse_and_validate_input({
+    "start_dtg": "2025-01-01T00:00:00Z",
+    "end_dtg": "2025-01-02T00:00:00Z",
+    "data_source_type": "file",
+    "data_source": "/path/to/data.csv",
+})
+
+# Create and populate an output document
+doc = contract.create_document(
+    input_schema_version=contract.version,
+    output_schema_version=contract.version,
+    author="Your Name",
+    author_organization="Your Org",
+    contact="you@example.com",
+    license="MIT",
+    documentation_link="https://example.com",
+    status="success",
+    exit_code=0,
+    inputs=inputs,
+    # ... additional required fields from the contract
+)
+
+# Finalize (validates output, computes hashes, captures environment)
+doc.finalise()
+
+# Save to file
+doc.save("output_report.json")
+```
+
+### Input Sources
+
+Inputs can be provided in multiple formats:
+
+```python
+# From a Python dict
+inputs = contract.parse_and_validate_input({"key": "value"})
+
+# From a JSON file path
+inputs = contract.parse_and_validate_input("/path/to/config.json")
+
+# From a JSON string
+inputs = contract.parse_and_validate_input('{"key": "value"}')
+
+# From CLI arguments
+inputs = contract.parse_and_validate_input([
+    "--start-dtg", "2025-01-01T00:00:00Z",
+    "--end-dtg", "2025-01-02T00:00:00Z",
+])
+
+# From sys.argv (default when None is passed)
+inputs = contract.parse_and_validate_input(None)
+```
+
+### Bundled Contracts
+
+The package includes two production-ready contracts:
+
+- **`analytic_schema.json`** - For security analytics and data analysis pipelines. Includes fields for findings, MITRE ATT&CK mappings, and observables.
+- **`model_schema.json`** - For ML model training manifests. Includes fields for metrics, hyperparameters, and model artifacts.
+
+Both contracts share common metadata fields like execution environment, timestamps, and provenance hashes.
+
+### Creating Custom Contracts
+
+Custom contracts must conform to the bundled meta-schema (`contract_meta_schema.json`), which requires:
+
+- `title`, `version`, `description` at the top level
+- `input` and `output` objects, each containing a `fields` object
+
+See `example_analytic.py` and `example_model.py` for complete working examples.
 
 ## Project structure
 
@@ -88,25 +173,22 @@ Contract Schema solves this by treating the contract itself as code--version-con
 
 Contributions are welcome from all, regardless of rank or position.
 
-There are no system requirements for contributing to this project. To contribute via the web:
+To contribute to this project:
 
-1. Click GitLab's "Web IDE" button to open the online editor.
-2. Make your changes. **Note:** limit your changes to one part of one file per commit; for example, edit only the "Description" section here in the first commit, then the "Background and Motivation" section in a separate commit.
-3. Once finished, click the blue "Commit..." button.
-4. Write a detailed description of the changes you made in the "Commit Message" box.
-5. Select the "Create a new branch" radio button if you do not already have your own branch; otherwise, select your branch. The recommended naming convention for new branches is ``first.middle.last``.
-6. Click the green "Commit" button.
+1. Fork the repository on GitHub.
+2. Create a new branch for your changes (recommended naming: `feature/description` or `fix/description`).
+3. Make your changes. **Note:** limit your changes to one part of one file per commit for easier review.
+4. Write a detailed description of the changes you made in the commit message.
+5. Push your branch and create a Pull Request.
 
-You may also contribute to this project using your local machine by cloning this repository to your workstation, creating a new branch, committing and pushing your changes, and creating a merge request.
+You may also contribute by opening issues to report bugs or request features.
 
 ## Contributors
 
-This section lists project contributors. When you submit a merge request, remember to append your name to the bottom of the list below. You may also include a brief list of the sections to which you contributed.
+This section lists project contributors. When you submit a Pull Request, remember to append your name to the bottom of the list below. You may also include a brief list of the sections to which you contributed.
 
 * **Creator:** Zachary Szewczyk
 
 ## License
-
-**Required**. This section should include a boilerplate summary of the license under which the project is published. For Information Defense company projects, this should be the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License; use the paragraph below:
 
 This project is licensed under the [Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License](https://creativecommons.org/licenses/by-nc-sa/4.0/). You can view the full text of the license in [LICENSE.md](./LICENSE.md). Read more about the license [at the original author's website](https://zacs.site/disclaimers.html). Generally speaking, this license allows individuals to remix this work provided they release their adaptation under the same license and cite this project as the original, and prevents anyone from turning this work or its derivatives into a commercial product.
