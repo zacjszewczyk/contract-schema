@@ -4,7 +4,7 @@
 name = "contract-schema"
 description = "Standardised inputs and outputs based on contract files."
 readme = "README.md"
-version = "1.0.0"
+version = "1.0.1"
 requires-python = ">=3.8"
 license = { file = "LICENSE.md" }
 authors = [
