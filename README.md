@@ -173,19 +173,20 @@ Contract Schema solves this by treating the contract itself as code--version-con
 
 Contributions are welcome from all, regardless of rank or position.
 
-To contribute to this project:
+There are no system requirements for contributing to this project. To contribute via the web:
 
-1. Fork the repository on GitHub.
-2. Create a new branch for your changes (recommended naming: `feature/description` or `fix/description`).
-3. Make your changes. **Note:** limit your changes to one part of one file per commit for easier review.
-4. Write a detailed description of the changes you made in the commit message.
-5. Push your branch and create a Pull Request.
+1. Click GitLab's "Web IDE" button to open the online editor.
+2. Make your changes. **Note:** limit your changes to one part of one file per commit; for example, edit only the "Description" section here in the first commit, then the "Background and Motivation" section in a separate commit.
+3. Once finished, click the blue "Commit..." button.
+4. Write a detailed description of the changes you made in the "Commit Message" box.
+5. Select the "Create a new branch" radio button if you do not already have your own branch; otherwise, select your branch. The recommended naming convention for new branches is ``first.middle.last``.
+6. Click the green "Commit" button.
 
-You may also contribute by opening issues to report bugs or request features.
+You may also contribute to this project using your local machine by cloning this repository to your workstation, creating a new branch, committing and pushing your changes, and creating a merge request.
 
 ## Contributors
 
-This section lists project contributors. When you submit a Pull Request, remember to append your name to the bottom of the list below. You may also include a brief list of the sections to which you contributed.
+This section lists project contributors. When you submit a merge request, remember to append your name to the bottom of the list below. You may also include a brief list of the sections to which you contributed.
 
 * **Creator:** Zachary Szewczyk
 
