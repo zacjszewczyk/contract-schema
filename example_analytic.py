@@ -9,11 +9,22 @@ This example demonstrates:
 --------------------------
 1. **Contract Loading**: How to load and access contract metadata
 2. **Input Parsing & Validation**: Multiple ways to parse inputs (dict, CLI args)
-3. **Document Creation**: Setting all required and optional output fields
-4. **Message Logging**: Using add_message() for structured execution logging
-5. **Finding Generation**: Creating findings with all required fields
-6. **Finalisation**: Auto-computed fields (hashes, timestamps, environment)
-7. **Export**: Saving documents as JSON and Markdown reports
+3. **Field Mapping (data_map)**: Transforming non-SchemaONE data to compliant format
+4. **Document Creation**: Setting all required and optional output fields
+5. **Message Logging**: Using add_message() for structured execution logging
+6. **Finding Generation**: Creating findings with all required fields
+7. **Finalisation**: Auto-computed fields (hashes, timestamps, environment)
+8. **Export**: Saving documents as JSON and Markdown reports
+
+Field Mapping (data_map) Feature
+--------------------------------
+The data_map field enables analytics to work with non-SchemaONE data sources
+by defining mappings from vendor-specific field names to standardized
+SchemaONE equivalents. This example demonstrates:
+- Simulating a Zeek conn.log data source with vendor-specific field names
+- Defining a mapping from Zeek fields to SchemaONE equivalents
+- Applying the mapping to transform data to a compliant format
+- Storing the mapping configuration in inputs for audit purposes
 
 Schema Fields Demonstrated
 --------------------------
@@ -104,14 +115,116 @@ now_iso = utils._now_iso()
 iris = load_iris(as_frame=True)
 df: pd.DataFrame = iris.frame
 
+# =============================================================================
+# FIELD MAPPING DEMONSTRATION (data_map)
+# =============================================================================
+# The data_map field enables analytics to work with non-SchemaONE data sources
+# by defining mappings from vendor-specific field names to standardized
+# SchemaONE equivalents. This is critical for interoperability when:
+#   - Ingesting data from legacy systems with proprietary field names
+#   - Working with third-party APIs that use different naming conventions
+#   - Normalizing data from multiple vendors into a common schema
+#
+# SchemaONE is a standardized schema for security event data. Common fields:
+#   - src_ip: Source IP address
+#   - dst_ip: Destination IP address
+#   - src_port: Source port number
+#   - dst_port: Destination port number
+#   - timestamp: Event timestamp (ISO 8601)
+#   - event_type: Type of security event
+#   - severity: Event severity level
+#   - user: Associated username
+#   - hostname: Associated hostname
+#
+# Example: Mapping Zeek conn.log fields to SchemaONE equivalents
+
+# Simulating a non-SchemaONE data source (e.g., Zeek conn.log format)
+# In production, this would come from an actual data file or API
+zeek_sample_data = pd.DataFrame({
+    # Zeek uses different field names than SchemaONE
+    "ts": ["2025-01-15T10:30:00Z", "2025-01-15T10:30:01Z"],  # Zeek's timestamp field
+    "id.orig_h": ["192.168.1.100", "10.0.0.50"],             # Zeek's source IP field
+    "id.resp_h": ["8.8.8.8", "1.1.1.1"],                     # Zeek's destination IP field
+    "id.orig_p": [54321, 12345],                             # Zeek's source port field
+    "id.resp_p": [443, 80],                                  # Zeek's destination port field
+    "proto": ["tcp", "tcp"],                                 # Protocol (same in both)
+    "service": ["ssl", "http"],                              # Zeek's service field
+    "orig_bytes": [1500, 2048],                              # Bytes from originator
+    "resp_bytes": [3200, 4096],                              # Bytes from responder
+})
+log.info("Simulated Zeek conn.log data with %d records", len(zeek_sample_data))
+
+# Define the field mapping from Zeek format to SchemaONE
+# Keys: Original vendor field names
+# Values: Standardized SchemaONE field names
+zeek_to_schemaone_map = {
+    # Zeek field name -> SchemaONE field name
+    "ts": "timestamp",              # Zeek 'ts' maps to SchemaONE 'timestamp'
+    "id.orig_h": "src_ip",          # Zeek 'id.orig_h' maps to SchemaONE 'src_ip'
+    "id.resp_h": "dst_ip",          # Zeek 'id.resp_h' maps to SchemaONE 'dst_ip'
+    "id.orig_p": "src_port",        # Zeek 'id.orig_p' maps to SchemaONE 'src_port'
+    "id.resp_p": "dst_port",        # Zeek 'id.resp_p' maps to SchemaONE 'dst_port'
+    "proto": "protocol",            # Zeek 'proto' maps to SchemaONE 'protocol'
+    "service": "service",           # Same field name (no mapping needed, but explicit)
+    "orig_bytes": "bytes_out",      # Zeek 'orig_bytes' maps to SchemaONE 'bytes_out'
+    "resp_bytes": "bytes_in",       # Zeek 'resp_bytes' maps to SchemaONE 'bytes_in'
+}
+log.info("Field mapping defined: %d Zeek fields -> SchemaONE", len(zeek_to_schemaone_map))
+
+
+def apply_field_mapping(data: pd.DataFrame, field_map: dict) -> pd.DataFrame:
+    """
+    Apply a field mapping to transform vendor-specific column names to SchemaONE.
+
+    This utility function demonstrates how analytics can use the data_map
+    configuration to normalize incoming data from various sources.
+
+    Parameters
+    ----------
+    data : pd.DataFrame
+        Input DataFrame with vendor-specific column names
+    field_map : dict
+        Mapping from vendor field names to SchemaONE field names
+
+    Returns
+    -------
+    pd.DataFrame
+        DataFrame with columns renamed to SchemaONE equivalents
+    """
+    # Create the rename mapping for columns that exist in the data
+    rename_map = {
+        old_name: new_name
+        for old_name, new_name in field_map.items()
+        if old_name in data.columns
+    }
+    return data.rename(columns=rename_map)
+
+
+# Apply the mapping to transform Zeek data to SchemaONE format
+schemaone_data = apply_field_mapping(zeek_sample_data, zeek_to_schemaone_map)
+log.info("Transformed columns: %s -> %s",
+         list(zeek_sample_data.columns), list(schemaone_data.columns))
+
+# Now the analytic can work with standardized field names
+# regardless of the original data source format
+log.info("SchemaONE-compliant data preview:")
+log.info("  Columns: %s", list(schemaone_data.columns))
+log.info("  First row src_ip: %s, dst_ip: %s",
+         schemaone_data["src_ip"].iloc[0], schemaone_data["dst_ip"].iloc[0])
+
+# =============================================================================
+# END FIELD MAPPING DEMONSTRATION
+# =============================================================================
+
 # Demonstrate setting ALL input fields (required + optional)
+# Note: The data_map field stores the mapping configuration for audit purposes
 inputs = C.parse_and_validate_input(
     {
         # --- Required fields ---------------------------------------------------
         "start_dtg": now_iso,  # Inclusive UTC timestamp (ISO 8601) for data window start
         "end_dtg": now_iso,  # Exclusive UTC timestamp (ISO 8601) for data window end
         "data_source_type": "file",  # Transport mechanism: "file", "IONIC", or "api"
-        "data_source": "iris.frame",  # Path/identifier/URL for the dataset
+        "data_source": "zeek_conn.log",  # Path/identifier/URL for the dataset
 
         # --- Optional fields (with defaults shown) -----------------------------
         "log_path": "stdout",  # (optional) Where to write execution logs; default: "stdout"
@@ -120,11 +233,16 @@ inputs = C.parse_and_validate_input(
             "min_class_count": 10,  # Example custom parameter
             "include_summary": True,  # Example custom parameter
         },
-        "data_map": {},  # (optional) Field mapping for non-SchemaONE data; default: {}
+        # (optional) Field mapping for non-SchemaONE data sources
+        # This stores the mapping configuration used to normalize the input data
+        # so that downstream consumers know how the data was transformed
+        "data_map": zeek_to_schemaone_map,
         "verbosity": "INFO",  # (optional) Log level: DEBUG/INFO/WARN/ERROR/FATAL; default: "INFO"
     }
 )
 log.info("Input validation successful. Fields: %s", list(inputs.keys()))
+log.info("Data mapping stored in inputs for audit trail: %d field mappings",
+         len(inputs.get("data_map", {})))
 
 # --------------------------------------------------------------------------- #
 # Step 3: Derive Findings                                                     #
@@ -269,6 +387,11 @@ doc = C.create_document(
         "ci_job_url": "https://example.com/ci/job/12345",
         "git_commit": "abc123def456",
         "ticket_id": "JIRA-1234",
+        # Document the field mapping that was applied to normalize the data
+        "field_mapping_applied": True,
+        "source_format": "Zeek conn.log",
+        "target_format": "SchemaONE",
+        "fields_mapped": len(zeek_to_schemaone_map),
     },
 )
 
@@ -284,6 +407,8 @@ doc = C.create_document(
 log.info("Adding structured messages to document...")
 doc.add_message("INFO", "Analytic execution started")
 doc.add_message("DEBUG", f"Loaded {len(df)} records from iris.frame")
+doc.add_message("INFO", f"Applied field mapping: {len(zeek_to_schemaone_map)} Zeek fields -> SchemaONE")
+doc.add_message("DEBUG", f"Transformed columns: {list(zeek_sample_data.columns)} -> {list(schemaone_data.columns)}")
 doc.add_message("INFO", f"Analysing {len(class_counts)} distinct classes")
 doc.add_message("INFO", f"Generated {len(findings)} finding(s)")
 doc.add_message("INFO", "Analytic execution completed successfully")
@@ -331,10 +456,11 @@ log.info("=" * 70)
 log.info("Example completed successfully!")
 log.info("This example demonstrated:")
 log.info("  1. Loading and inspecting a contract schema")
-log.info("  2. Parsing and validating inputs with all fields")
-log.info("  3. Creating findings with all required fields")
-log.info("  4. Building a document with required and optional fields")
-log.info("  5. Adding structured log messages")
-log.info("  6. Finalising with auto-computed hashes and metadata")
-log.info("  7. Exporting to JSON and Markdown formats")
+log.info("  2. Field mapping: transforming Zeek conn.log -> SchemaONE format")
+log.info("  3. Parsing and validating inputs with all fields (including data_map)")
+log.info("  4. Creating findings with all required fields")
+log.info("  5. Building a document with required and optional fields")
+log.info("  6. Adding structured log messages")
+log.info("  7. Finalising with auto-computed hashes and metadata")
+log.info("  8. Exporting to JSON and Markdown formats")
 log.info("=" * 70)
