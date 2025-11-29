@@ -124,7 +124,7 @@ Custom contracts must conform to the bundled meta-schema (`contract_meta_schema.
 - `title`, `version`, `description` at the top level
 - `input` and `output` objects, each containing a `fields` object
 
-See `example_analytic.py` and `example_model.py` for complete working examples.
+See `example_analytic.py` and `example_model.py` for complete working examples. See `example_analytic.ipynb` for an interactive example of the analytic schema in action.
 
 ## Project structure
 
@@ -146,6 +146,7 @@ contract-schema/        # Repository root
 |       |__ contract_meta_schema.json
 |
 |__ example_analytic.py  # End-to-end demo script for the analytic contract
+|__ example_analytic.ipynb # End-to-end demo notebook for the analytic contract
 |__ example_model.py  # End-to-end demo script for the model contract
 |
 |__ tests/               # Unit tests
