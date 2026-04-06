@@ -2,6 +2,15 @@
 
 Contract Schema is a lightweight Python package for schema-driven, structured inputs and outputs.
 
+The contract language is intentionally compact, but it now supports first-class validation for:
+
+* regex-constrained scalar values via `pattern`
+* list cardinality via `minItems`
+* object cardinality via `minProperties`
+* dynamic object maps via `additionalProperties` schemas and `propertyNamesPattern`
+* strict ISO calendar dates via `format: date`
+* MITRE-style timestamps with either `T` or space separators via `format: mitre-date-time`
+
 ## Table of Contents
 
 * [**Description**](#description)
@@ -18,7 +27,7 @@ Contract Schema is a lightweight Python package for schema-driven, structured in
 
 Contract Schema unifies disparate I/O layers under one authoritative contract. A single, versioned JSON file defines both the permissible inputs and the required outputs; the library takes care of CLI generation, default handling, deep validation, and rich, provenance-aware output documents.
 
-* **Input parsing:** Every field in the contract automatically becomes an `argparse` flag, a JSON key, and a CLI flag, with type enforcement, enums, and sensible defaults injected.  
+* **Input parsing:** Every field in the contract automatically becomes an `argparse` flag, a JSON key, and a CLI flag, with type enforcement, enums, regex checks, and sensible defaults injected.  
 * **Output construction:** The same contract defines the structure of your result document. A helper class injects run metadata, hashes inputs and findings for auditability, and captures execution environment details.  
 * **Meta-schema validation:** A bundled _meta-schema_ ensures every contract you write contains the minimal top-level keys (`title`, `version`, `description`, `input`, `output`) and that both `input` and `output` sections themselves declare a `fields` block. Contract mistakes are caught at load time.  
 * **No heavy dependencies:** Only the Python standard library (>= 3.8) is required. `pandas` is optional and used only when you pass a DataFrame directly as an input.  
@@ -115,7 +124,9 @@ The package includes two production-ready contracts:
 - **`analytic_schema.json`** - For security analytics and data analysis pipelines. Includes fields for findings, MITRE ATT&CK mappings, and observables.
 - **`model_schema.json`** - For ML model training manifests. Includes fields for metrics, hyperparameters, and model artifacts.
 
-Both contracts share common metadata fields like execution environment, timestamps, and provenance hashes.
+The package also includes **`analytic_plans.json`** for validating analytic plan JSON arrays such as those stored under a `techniques/` directory. It is intended for contract-driven validation of plan content rather than execution manifests.
+
+All bundled contracts share the same contract language and validator, including support for dynamic MITRE ID maps (`AN####`, `DET####`), list/object cardinality checks, and flexible MITRE timestamp parsing where needed.
 
 ### Creating Custom Contracts
 

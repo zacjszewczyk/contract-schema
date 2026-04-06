@@ -29,6 +29,10 @@ class LoaderTests(unittest.TestCase):
         schema = loader.load_schema("analytic_schema.json")
         self.assertEqual(schema["title"], "Analytic Schema")
 
+    def test_load_analytic_plans_schema_from_package_resource(self):
+        schema = loader.load_schema("analytic_plans.json")
+        self.assertEqual(schema["title"], "Analytic Plans Contract")
+
     def test_load_schema_not_found(self):
         with self.assertRaises(FileNotFoundError):
             loader.load_schema("does_not_exist.json")

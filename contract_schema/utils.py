@@ -88,6 +88,8 @@ def _hash(obj: Any) -> str:
 # --------------------------------------------------------------------------- #
 
 _DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:\d{2})$")
+_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+_FLEX_DT_RE = re.compile(r"^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+\-]\d{2}:\d{2})$")
 
 def _is_datetime(value: Any) -> bool:
     """Return True iff *value* is a valid ISO-8601 date-time string."""
@@ -97,6 +99,33 @@ def _is_datetime(value: Any) -> bool:
 
     try:
         datetime.fromisoformat(value.replace("Z", "+00:00"))
+        return True
+    except ValueError:
+        return False
+
+
+def _is_date(value: Any) -> bool:
+    """Return True iff *value* is a valid ISO-8601 calendar date string."""
+    if not isinstance(value, str) or not _DATE_RE.fullmatch(value):
+        return False
+    from datetime import date
+
+    try:
+        date.fromisoformat(value)
+        return True
+    except ValueError:
+        return False
+
+
+def _is_flexible_datetime(value: Any) -> bool:
+    """Return True iff *value* is a valid date-time using either `T` or space separators."""
+    if not isinstance(value, str) or not _FLEX_DT_RE.fullmatch(value):
+        return False
+    from datetime import datetime
+
+    try:
+        normalised = value.replace(" ", "T", 1).replace("Z", "+00:00")
+        datetime.fromisoformat(normalised)
         return True
     except ValueError:
         return False

@@ -25,6 +25,7 @@ from __future__ import annotations
 import copy
 import json
 from pathlib import Path
+import re
 from typing import Any, Mapping
 
 from . import utils
@@ -54,9 +55,12 @@ def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> No
 
     * ``type`` (list or scalar)
     * ``enum``
-    * ``format: date-time``
+    * ``format: date-time`` / ``date`` / ``mitre-date-time``
+    * ``pattern`` for string regex checks
     * object validation via ``fields`` / ``required`` / ``additionalProperties``
+      / ``propertyNamesPattern`` / ``minProperties``
     * list validation via ``items`` or custom ``subtype`` shorthand
+      / ``minItems``
     """
 
     stype = schema.get("type")
@@ -73,12 +77,38 @@ def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> No
     if "enum" in schema and value not in schema["enum"]:
         raise SchemaError(f"{path}: '{value}' not in {schema['enum']}")
 
-    # 3) format                                                             #
-    if schema.get("format") == "date-time" and not utils._is_datetime(value):
+    # 3) scalar constraints -------------------------------------------------
+    fmt = schema.get("format")
+    if fmt == "date-time" and not utils._is_datetime(value):
         raise SchemaError(f"{path}: '{value}' is not ISO-8601 date-time")
+    if fmt == "date" and not utils._is_date(value):
+        raise SchemaError(f"{path}: '{value}' is not ISO-8601 date")
+    if fmt == "mitre-date-time" and not utils._is_flexible_datetime(value):
+        raise SchemaError(f"{path}: '{value}' is not a supported MITRE date-time")
+
+    if isinstance(value, str):
+        pattern = schema.get("pattern")
+        if pattern is not None and re.fullmatch(pattern, value) is None:
+            raise SchemaError(f"{path}: '{value}' does not match pattern '{pattern}'")
+
+        min_length = schema.get("minLength")
+        if min_length is not None and len(value) < min_length:
+            raise SchemaError(f"{path}: length {len(value)} is less than minLength {min_length}")
 
     # 4) object recursion ---------------------------------------------------
     if isinstance(value, dict):
+        min_properties = schema.get("minProperties")
+        if min_properties is not None and len(value) < min_properties:
+            raise SchemaError(f"{path}: has {len(value)} properties, below minProperties {min_properties}")
+
+        key_pattern = schema.get("propertyNamesPattern")
+        if key_pattern is not None:
+            for key in value:
+                if re.fullmatch(key_pattern, key) is None:
+                    raise SchemaError(
+                        f"{path}: key '{key}' does not match propertyNamesPattern '{key_pattern}'"
+                    )
+
         fields = schema.get("fields")
         if fields is not None:  # only validate known object schemas
             required = {k for k, meta in fields.items() if meta.get("required")}
@@ -90,13 +120,29 @@ def validate(value: Any, *, schema: Mapping[str, Any], path: str = "root") -> No
             addl = schema.get("additionalProperties", True)
             if addl is False and extras:
                 raise SchemaError(f"{path}: unexpected fields {sorted(extras)}")
+            if isinstance(addl, Mapping):
+                for k in extras:
+                    child_path = f"{path}.{k}" if path else k
+                    validate(value[k], schema=addl, path=child_path)
             # recurse into children ---------------------------------------
             for k, v in value.items():
                 child_path = f"{path}.{k}" if path else k
                 validate(v, schema=fields.get(k, {}), path=child_path)
+        else:
+            addl = schema.get("additionalProperties", True)
+            if addl is False and value:
+                raise SchemaError(f"{path}: unexpected fields {sorted(value)}")
+            if isinstance(addl, Mapping):
+                for k, v in value.items():
+                    child_path = f"{path}.{k}" if path else k
+                    validate(v, schema=addl, path=child_path)
 
     # 5) list recursion -----------------------------------------------------
     if isinstance(value, list):
+        min_items = schema.get("minItems")
+        if min_items is not None and len(value) < min_items:
+            raise SchemaError(f"{path}: has {len(value)} items, below minItems {min_items}")
+
         if "items" in schema:
             item_schema = schema["items"]
         elif "subtype" in schema:

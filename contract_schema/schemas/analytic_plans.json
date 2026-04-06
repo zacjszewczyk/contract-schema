@@ -1,0 +1,702 @@
+{
+  "title": "Analytic Plans Contract",
+  "description": "Schema contract for MITRE ATT&CK and D3FEND analytic plan documents stored as JSON arrays.",
+  "version": "1.0.0",
+  "input": {
+    "title": "Analytic Plans Input Schema",
+    "type": "object",
+    "description": "Wrapper object used to validate raw analytic plan arrays from the techniques directory.",
+    "fields": {
+      "analytic_plans": {
+        "type": ["list"],
+        "required": true,
+        "minItems": 1,
+        "description": "A list of analytic plan entries.",
+        "items": {
+          "type": ["object"],
+          "fields": {
+            "information_requirement": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1,
+              "pattern": ".+\\?(?:\\s+\\([^)]+\\))*$",
+              "description": "Mission question or CCIR phrased as a question."
+            },
+            "tactic_id": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "(?:TA\\d{4}|D3-[A-Z0-9]+)",
+              "description": "MITRE ATT&CK tactic ID or D3FEND tactic identifier."
+            },
+            "tactic_name": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1,
+              "description": "MITRE tactic name."
+            },
+            "tactic_description": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1,
+              "description": "MITRE tactic description."
+            },
+            "tactic_url": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "https?://.+",
+              "description": "ATT&CK or D3FEND tactic URL."
+            },
+            "tactic_created": {
+              "type": ["string"],
+              "required": true,
+              "format": "mitre-date-time",
+              "description": "MITRE tactic creation timestamp."
+            },
+            "tactic_last_modified": {
+              "type": ["string"],
+              "required": true,
+              "format": "mitre-date-time",
+              "description": "MITRE tactic last-modified timestamp."
+            },
+            "tactic_domain": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["string"],
+                "minLength": 1
+              },
+              "description": "MITRE tactic domains."
+            },
+            "tactic_version": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "\\d+(?:\\.\\d+)+",
+              "description": "MITRE tactic version string."
+            },
+            "indicators": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "description": "Indicators associated with the information requirement.",
+              "items": {
+                "type": ["object"],
+                "fields": {
+                  "technique_id": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "(?:T\\d{4}(?:\\.\\d{3})?|D3-[A-Z0-9]+)",
+                    "description": "MITRE ATT&CK technique ID or D3FEND technique identifier."
+                  },
+                  "technique_name": {
+                    "type": ["string"],
+                    "required": true,
+                    "minLength": 1,
+                    "description": "MITRE technique name."
+                  },
+                  "technique_description": {
+                    "type": ["string"],
+                    "required": true,
+                    "minLength": 1,
+                    "description": "MITRE technique description."
+                  },
+                  "technique_url": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "https?://.+",
+                    "description": "ATT&CK or D3FEND technique URL."
+                  },
+                  "technique_created": {
+                    "type": ["string"],
+                    "required": true,
+                    "format": "mitre-date-time",
+                    "description": "MITRE technique creation timestamp."
+                  },
+                  "technique_last_modified": {
+                    "type": ["string"],
+                    "required": true,
+                    "format": "mitre-date-time",
+                    "description": "MITRE technique last-modified timestamp."
+                  },
+                  "technique_domain": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    },
+                    "description": "MITRE technique domains."
+                  },
+                  "technique_version": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "\\d+(?:\\.\\d+)+",
+                    "description": "MITRE technique version string."
+                  },
+                  "technique_platforms": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    },
+                    "description": "Platforms associated with the technique."
+                  },
+                  "technique_analytics": {
+                    "type": ["object"],
+                    "required": true,
+                    "minProperties": 1,
+                    "propertyNamesPattern": "AN\\d{4}",
+                    "description": "MITRE analytics keyed by analytic identifier.",
+                    "additionalProperties": {
+                      "type": ["object"],
+                      "fields": {
+                        "analytic_name": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "analytic_description": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "analytic_url": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "https?://.+"
+                        },
+                        "analytic_created": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "analytic_last_modified": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "analytic_domain": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "analytic_version": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "\\d+(?:\\.\\d+)+"
+                        },
+                        "analytic_log_source_references": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["object"],
+                            "fields": {
+                              "data_component_id": {
+                                "type": ["string"],
+                                "required": true,
+                                "pattern": "DC\\d{4}"
+                              },
+                              "data_component_title": {
+                                "type": ["string"],
+                                "required": true,
+                                "minLength": 1
+                              },
+                              "log_source_name": {
+                                "type": ["string"],
+                                "required": true,
+                                "minLength": 1
+                              },
+                              "log_source_channel": {
+                                "type": ["string"],
+                                "required": true,
+                                "minLength": 1
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "detection_strategies": {
+                    "type": ["object"],
+                    "required": true,
+                    "minProperties": 1,
+                    "propertyNamesPattern": "DET\\d{4}",
+                    "description": "MITRE detection strategies keyed by detection strategy identifier.",
+                    "additionalProperties": {
+                      "type": ["object"],
+                      "fields": {
+                        "detection_strategy_name": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "detection_strategy_url": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "https?://.+"
+                        },
+                        "detection_strategy_created": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "detection_strategy_last_modified": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "detection_strategy_domain": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "detection_strategy_version": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "\\d+(?:\\.\\d+)+"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "evidence": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["object"],
+                      "fields": {
+                        "description": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "data_sources": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "data_platforms": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "pattern": "TBD"
+                          }
+                        },
+                        "nai": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "action": {
+                          "type": ["object"],
+                          "required": true,
+                          "minProperties": 1,
+                          "propertyNamesPattern": ".+",
+                          "additionalProperties": {
+                            "type": ["string"],
+                            "minLength": 1,
+                            "pattern": "(?:Symbolic Logic|Statistical Method|Machine Learning):\\s.+"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "last_updated": {
+              "type": ["string"],
+              "required": true,
+              "format": "date",
+              "description": "Date the analytic plan was last updated."
+            },
+            "version": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "\\d+(?:\\.\\d+)+",
+              "description": "Analytic plan version string."
+            },
+            "date_created": {
+              "type": ["string"],
+              "required": true,
+              "format": "date",
+              "description": "Date the analytic plan was created."
+            },
+            "contributors": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["string"],
+                "minLength": 1
+              },
+              "description": "Contributors to the analytic plan."
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "output": {
+    "title": "Analytic Plans Output Schema",
+    "type": "object",
+    "description": "Output schema for normalized analytic plan documents.",
+    "fields": {
+      "analytic_plans": {
+        "type": ["list"],
+        "required": true,
+        "minItems": 1,
+        "description": "A list of analytic plan entries.",
+        "items": {
+          "type": ["object"],
+          "fields": {
+            "information_requirement": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1,
+              "pattern": ".+\\?(?:\\s+\\([^)]+\\))*$"
+            },
+            "tactic_id": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "(?:TA\\d{4}|D3-[A-Z0-9]+)"
+            },
+            "tactic_name": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1
+            },
+            "tactic_description": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1
+            },
+            "tactic_url": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "https?://.+"
+            },
+            "tactic_created": {
+              "type": ["string"],
+              "required": true,
+              "format": "mitre-date-time"
+            },
+            "tactic_last_modified": {
+              "type": ["string"],
+              "required": true,
+              "format": "mitre-date-time"
+            },
+            "tactic_domain": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["string"],
+                "minLength": 1
+              }
+            },
+            "tactic_version": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "\\d+(?:\\.\\d+)+"
+            },
+            "indicators": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["object"],
+                "fields": {
+                  "technique_id": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "(?:T\\d{4}(?:\\.\\d{3})?|D3-[A-Z0-9]+)"
+                  },
+                  "technique_name": {
+                    "type": ["string"],
+                    "required": true,
+                    "minLength": 1
+                  },
+                  "technique_description": {
+                    "type": ["string"],
+                    "required": true,
+                    "minLength": 1
+                  },
+                  "technique_url": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "https?://.+"
+                  },
+                  "technique_created": {
+                    "type": ["string"],
+                    "required": true,
+                    "format": "mitre-date-time"
+                  },
+                  "technique_last_modified": {
+                    "type": ["string"],
+                    "required": true,
+                    "format": "mitre-date-time"
+                  },
+                  "technique_domain": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_version": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "\\d+(?:\\.\\d+)+"
+                  },
+                  "technique_platforms": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_analytics": {
+                    "type": ["object"],
+                    "required": true,
+                    "minProperties": 1,
+                    "propertyNamesPattern": "AN\\d{4}",
+                    "additionalProperties": {
+                      "type": ["object"],
+                      "fields": {
+                        "analytic_name": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "analytic_description": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "analytic_url": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "https?://.+"
+                        },
+                        "analytic_created": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "analytic_last_modified": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "analytic_domain": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "analytic_version": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "\\d+(?:\\.\\d+)+"
+                        },
+                        "analytic_log_source_references": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["object"],
+                            "fields": {
+                              "data_component_id": {
+                                "type": ["string"],
+                                "required": true,
+                                "pattern": "DC\\d{4}"
+                              },
+                              "data_component_title": {
+                                "type": ["string"],
+                                "required": true,
+                                "minLength": 1
+                              },
+                              "log_source_name": {
+                                "type": ["string"],
+                                "required": true,
+                                "minLength": 1
+                              },
+                              "log_source_channel": {
+                                "type": ["string"],
+                                "required": true,
+                                "minLength": 1
+                              }
+                            },
+                            "additionalProperties": false
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "detection_strategies": {
+                    "type": ["object"],
+                    "required": true,
+                    "minProperties": 1,
+                    "propertyNamesPattern": "DET\\d{4}",
+                    "additionalProperties": {
+                      "type": ["object"],
+                      "fields": {
+                        "detection_strategy_name": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "detection_strategy_url": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "https?://.+"
+                        },
+                        "detection_strategy_created": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "detection_strategy_last_modified": {
+                          "type": ["string"],
+                          "required": true,
+                          "format": "mitre-date-time"
+                        },
+                        "detection_strategy_domain": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "detection_strategy_version": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "\\d+(?:\\.\\d+)+"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  },
+                  "evidence": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["object"],
+                      "fields": {
+                        "description": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "data_sources": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "data_platforms": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "pattern": "TBD"
+                          }
+                        },
+                        "nai": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "action": {
+                          "type": ["object"],
+                          "required": true,
+                          "minProperties": 1,
+                          "propertyNamesPattern": ".+",
+                          "additionalProperties": {
+                            "type": ["string"],
+                            "minLength": 1,
+                            "pattern": "(?:Symbolic Logic|Statistical Method|Machine Learning):\\s.+"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "last_updated": {
+              "type": ["string"],
+              "required": true,
+              "format": "date"
+            },
+            "version": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "\\d+(?:\\.\\d+)+"
+            },
+            "date_created": {
+              "type": ["string"],
+              "required": true,
+              "format": "date"
+            },
+            "contributors": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["string"],
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "additionalProperties": false
+  }
+}

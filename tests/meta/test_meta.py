@@ -10,6 +10,7 @@ from contract_schema import Contract, loader, validator
 class MetaSchemaTests(unittest.TestCase):
     def setUp(self):
         self.good_analytic_schema = loader.load_schema("analytic_schema.json")
+        self.good_analytic_plans_schema = loader.load_schema("analytic_plans.json")
         self.good_model_schema = loader.load_schema("model_schema.json")
         self.meta_schema = loader.load_schema("contract_meta_schema.json")
 
@@ -18,10 +19,12 @@ class MetaSchemaTests(unittest.TestCase):
     # ------------------------------------------------------------------ #
     def test_good_contracts_load(self):
         Contract.load("analytic_schema.json")  # should not raise
+        Contract.load("analytic_plans.json")   # should not raise
         Contract.load("model_schema.json")     # should not raise
 
     def test_schemas_are_valid_against_meta_schema(self):
         validator.validate(self.good_analytic_schema, schema=self.meta_schema)
+        validator.validate(self.good_analytic_plans_schema, schema=self.meta_schema)
         validator.validate(self.good_model_schema, schema=self.meta_schema)
 
     # ------------------------------------------------------------------ #

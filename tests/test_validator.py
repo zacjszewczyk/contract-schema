@@ -120,3 +120,64 @@ class ValidatorAdditionalPropsTests(unittest.TestCase):
             "additionalProperties": True,
         }
         validator.validate({"val": "x", "extra": 1}, schema=schema) # passes
+
+    def test_additional_properties_schema_validates_extra_values(self):
+        schema = {
+            "type": "object",
+            "fields": {},
+            "additionalProperties": {"type": ["string"], "minLength": 1},
+        }
+        validator.validate({"AN0001": "ok"}, schema=schema)
+        with self.assertRaisesRegex(SchemaError, r"root\.AN0001: length 0 is less than minLength 1"):
+            validator.validate({"AN0001": ""}, schema=schema)
+
+    def test_property_names_pattern_is_enforced(self):
+        schema = {
+            "type": "object",
+            "propertyNamesPattern": r"AN\d{4}",
+            "additionalProperties": {"type": ["string"]},
+        }
+        validator.validate({"AN1543": "present"}, schema=schema)
+        with self.assertRaisesRegex(SchemaError, r"key 'BAD' does not match propertyNamesPattern"):
+            validator.validate({"BAD": "present"}, schema=schema)
+
+    def test_pattern_min_items_and_formats(self):
+        schema = {
+            "type": "object",
+            "fields": {
+                "id": {"type": ["string"], "required": True, "pattern": r"T\d{4}(?:\.\d{3})?"},
+                "dates": {"type": ["list"], "required": True, "minItems": 1, "subtype": "string"},
+                "created": {"type": ["string"], "required": True, "format": "mitre-date-time"},
+                "updated": {"type": ["string"], "required": True, "format": "date"},
+            },
+            "additionalProperties": False,
+        }
+        validator.validate(
+            {
+                "id": "T1078.001",
+                "dates": ["Windows Event ID 4624"],
+                "created": "2025-04-25 14:45:36.917000+00:00",
+                "updated": "2026-04-06",
+            },
+            schema=schema,
+        )
+        with self.assertRaisesRegex(SchemaError, r"root\.id: 'BAD' does not match pattern"):
+            validator.validate(
+                {
+                    "id": "BAD",
+                    "dates": ["Windows Event ID 4624"],
+                    "created": "2025-04-25 14:45:36.917000+00:00",
+                    "updated": "2026-04-06",
+                },
+                schema=schema,
+            )
+        with self.assertRaisesRegex(SchemaError, r"root\.dates: has 0 items, below minItems 1"):
+            validator.validate(
+                {
+                    "id": "T1078",
+                    "dates": [],
+                    "created": "2025-04-25 14:45:36.917000+00:00",
+                    "updated": "2026-04-06",
+                },
+                schema=schema,
+            )
