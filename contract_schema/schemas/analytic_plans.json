@@ -85,7 +85,7 @@
                   "technique_id": {
                     "type": ["string"],
                     "required": true,
-                    "pattern": "(?:T\\d{4}(?:\\.\\d{3}|\\.A\\d{3})?|AZT\\d{3}|D3-[A-Z0-9]+)",
+                    "pattern": "(?:T\\d{4}(?:\\.\\d{3}|\\.A\\d{3})?|AT\\d{4}(?:\\.\\d{3})?|AZT\\d{3}|D3-[A-Z0-9]+)",
                     "description": "MITRE ATT&CK technique ID or D3FEND technique identifier."
                   },
                   "technique_name": {
@@ -436,7 +436,7 @@
                   "technique_id": {
                     "type": ["string"],
                     "required": true,
-                    "pattern": "(?:T\\d{4}(?:\\.\\d{3}|\\.A\\d{3})?|AZT\\d{3}|D3-[A-Z0-9]+)"
+                    "pattern": "(?:T\\d{4}(?:\\.\\d{3}|\\.A\\d{3})?|AT\\d{4}(?:\\.\\d{3})?|AZT\\d{3}|D3-[A-Z0-9]+)"
                   },
                   "technique_name": {
                     "type": ["string"],

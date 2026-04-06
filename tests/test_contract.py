@@ -147,7 +147,7 @@ class AnalyticPlansContractTests(unittest.TestCase):
         with self.assertRaisesRegex(SchemaError, "propertyNamesPattern"):
             self.contract.parse_and_validate_input(bad)
 
-    def test_analytic_plans_contract_accepts_azure_and_cloud_attack_ids(self):
+    def test_analytic_plans_contract_accepts_azure_cloud_and_aws_ids(self):
         azure = copy.deepcopy(self.payload)
         azure["analytic_plans"][0]["indicators"][0]["technique_id"] = "AZT505"
         self.assertEqual(
@@ -160,4 +160,18 @@ class AnalyticPlansContractTests(unittest.TestCase):
         self.assertEqual(
             self.contract.parse_and_validate_input(aws)["analytic_plans"][0]["indicators"][0]["technique_id"],
             "T1070.A001",
+        )
+
+        aws_matrix = copy.deepcopy(self.payload)
+        aws_matrix["analytic_plans"][0]["indicators"][0]["technique_id"] = "AT1667"
+        self.assertEqual(
+            self.contract.parse_and_validate_input(aws_matrix)["analytic_plans"][0]["indicators"][0]["technique_id"],
+            "AT1667",
+        )
+
+        aws_subtechnique = copy.deepcopy(self.payload)
+        aws_subtechnique["analytic_plans"][0]["indicators"][0]["technique_id"] = "AT1667.001"
+        self.assertEqual(
+            self.contract.parse_and_validate_input(aws_subtechnique)["analytic_plans"][0]["indicators"][0]["technique_id"],
+            "AT1667.001",
         )
