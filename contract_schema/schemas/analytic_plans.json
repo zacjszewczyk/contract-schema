@@ -147,7 +147,6 @@
                   "technique_analytics": {
                     "type": ["object"],
                     "required": true,
-                    "minProperties": 1,
                     "propertyNamesPattern": "AN\\d{4}",
                     "description": "MITRE analytics keyed by analytic identifier.",
                     "additionalProperties": {
@@ -195,7 +194,6 @@
                         "analytic_log_source_references": {
                           "type": ["list"],
                           "required": true,
-                          "minItems": 1,
                           "items": {
                             "type": ["object"],
                             "fields": {
@@ -230,7 +228,6 @@
                   "detection_strategies": {
                     "type": ["object"],
                     "required": true,
-                    "minProperties": 1,
                     "propertyNamesPattern": "DET\\d{4}",
                     "description": "MITRE detection strategies keyed by detection strategy identifier.",
                     "additionalProperties": {
@@ -489,7 +486,6 @@
                   "technique_analytics": {
                     "type": ["object"],
                     "required": true,
-                    "minProperties": 1,
                     "propertyNamesPattern": "AN\\d{4}",
                     "additionalProperties": {
                       "type": ["object"],
@@ -536,7 +532,6 @@
                         "analytic_log_source_references": {
                           "type": ["list"],
                           "required": true,
-                          "minItems": 1,
                           "items": {
                             "type": ["object"],
                             "fields": {
@@ -571,7 +566,6 @@
                   "detection_strategies": {
                     "type": ["object"],
                     "required": true,
-                    "minProperties": 1,
                     "propertyNamesPattern": "DET\\d{4}",
                     "additionalProperties": {
                       "type": ["object"],

@@ -175,3 +175,101 @@ class AnalyticPlansContractTests(unittest.TestCase):
             self.contract.parse_and_validate_input(aws_subtechnique)["analytic_plans"][0]["indicators"][0]["technique_id"],
             "AT1667.001",
         )
+
+    def test_analytic_plans_contract_allows_empty_analytic_log_source_references(self):
+        payload = copy.deepcopy(self.payload)
+        payload["analytic_plans"][0]["indicators"][0]["technique_analytics"]["AN1543"][
+            "analytic_log_source_references"
+        ] = []
+
+        out = self.contract.parse_and_validate_input(payload)
+        self.assertEqual(
+            out["analytic_plans"][0]["indicators"][0]["technique_analytics"]["AN1543"][
+                "analytic_log_source_references"
+            ],
+            [],
+        )
+
+    def test_analytic_plans_contract_allows_empty_analytics_and_detection_strategies(self):
+        payload = copy.deepcopy(self.payload)
+        payload["analytic_plans"][0]["indicators"][0]["technique_analytics"] = {}
+        payload["analytic_plans"][0]["indicators"][0]["detection_strategies"] = {}
+
+        out = self.contract.parse_and_validate_input(payload)
+        self.assertEqual(out["analytic_plans"][0]["indicators"][0]["technique_analytics"], {})
+        self.assertEqual(out["analytic_plans"][0]["indicators"][0]["detection_strategies"], {})
+
+
+class D3FendAnalyticPlansContractTests(unittest.TestCase):
+    def setUp(self):
+        self.contract = Contract.load("analytic_plans_d3fend.json")
+        self.payload = {
+            "analytic_plans": [
+                {
+                    "information_requirement": (
+                        "What is the security posture of our enterprise regarding "
+                        "active logical link mapping? (FFIR)"
+                    ),
+                    "tactic_id": "D3-D",
+                    "tactic_name": "Detect",
+                    "indicators": [
+                        {
+                            "technique_id": "D3-ALLM",
+                            "technique_name": "Active Logical Link Mapping",
+                            "technique_d3fend_label": "Active Logical Link Mapping",
+                            "technique_d3fend_definition": (
+                                "Active logical link mapping establishes awareness "
+                                "of logical links in the network."
+                            ),
+                            "technique_d3fend_subclasses": ["d3f:LogicalLinkMapping"],
+                            "technique_d3fend_kb_references": [
+                                {
+                                    "reference_id": "d3f:Reference-Example",
+                                    "reference_label": "Reference - Example",
+                                    "reference_title": "Example Reference",
+                                    "reference_link": "https://d3fend.mitre.org/example"
+                                }
+                            ],
+                            "evidence": [
+                                {
+                                    "description": "Logical link inventory data exists for critical enclaves.",
+                                    "data_sources": ["Zeek conn.log"],
+                                    "data_platforms": ["TBD"],
+                                    "nai": "Core switching and routing segments",
+                                    "action": {
+                                        "Build authoritative logical link inventory": (
+                                            "Symbolic Logic: Enumerate observed logical links "
+                                            "and compare them to the approved baseline."
+                                        ),
+                                        "Measure unexpected link prevalence": (
+                                            "Statistical Method: Track the daily rate of new "
+                                            "logical links and alert on deviations from baseline."
+                                        ),
+                                        "Classify anomalous graph edges": (
+                                            "Machine Learning: Score network graph edges for "
+                                            "anomalous connectivity patterns."
+                                        )
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    "last_updated": "2026-04-06",
+                    "version": "1.0",
+                    "date_created": "2025-10-09",
+                    "contributors": ["Zachary Szewczyk"]
+                }
+            ]
+        }
+
+    def test_d3fend_analytic_plans_contract_parses_valid_payload(self):
+        out = self.contract.parse_and_validate_input(self.payload)
+        self.assertEqual(out, self.payload)
+
+    def test_d3fend_contract_rejects_attack_only_fields_as_substitutes(self):
+        bad = copy.deepcopy(self.payload)
+        indicator = bad["analytic_plans"][0]["indicators"][0]
+        indicator.pop("technique_name")
+        indicator["name"] = "Active Logical Link Mapping"
+        with self.assertRaisesRegex(SchemaError, "missing required"):
+            self.contract.parse_and_validate_input(bad)
