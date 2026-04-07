@@ -1,0 +1,420 @@
+{
+  "title": "Analytic Plans D3FEND Contract",
+  "description": "Schema contract for D3FEND analytic plan documents stored as JSON arrays.",
+  "version": "1.0.0",
+  "input": {
+    "title": "D3FEND Analytic Plans Input Schema",
+    "type": "object",
+    "description": "Wrapper object used to validate raw D3FEND analytic plan arrays from the techniques directory.",
+    "fields": {
+      "analytic_plans": {
+        "type": ["list"],
+        "required": true,
+        "minItems": 1,
+        "description": "A list of D3FEND analytic plan entries.",
+        "items": {
+          "type": ["object"],
+          "fields": {
+            "information_requirement": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1,
+              "pattern": ".+\\?(?:\\s+\\([^)]+\\))*$"
+            },
+            "tactic_id": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "D3(?:-[A-Z0-9]+)*"
+            },
+            "tactic_name": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1
+            },
+            "indicators": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["object"],
+                "fields": {
+                  "technique_id": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "D3-[A-Z0-9]+"
+                  },
+                  "technique_name": {
+                    "type": ["string"],
+                    "required": true,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_label": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_definition": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_subclasses": {
+                    "type": ["list"],
+                    "required": false,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_d3fend_kb_article": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_kb_references": {
+                    "type": ["list"],
+                    "required": false,
+                    "items": {
+                      "type": ["object"],
+                      "fields": {
+                        "reference_id": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "reference_label": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "reference_title": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "reference_link": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "https?://.+"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "technique_d3fend_authenticates": {
+                    "type": ["list"],
+                    "required": false,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_d3fend_enables": {
+                    "type": ["list"],
+                    "required": false,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_d3fend_created": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "evidence": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["object"],
+                      "fields": {
+                        "description": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "data_sources": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "data_platforms": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "pattern": "TBD"
+                          }
+                        },
+                        "nai": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "action": {
+                          "type": ["object"],
+                          "required": true,
+                          "minProperties": 1,
+                          "propertyNamesPattern": ".+",
+                          "additionalProperties": {
+                            "type": ["string"],
+                            "minLength": 1,
+                            "pattern": "(?:Symbolic Logic|Statistical Method|Machine Learning):\\s.+"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "last_updated": {
+              "type": ["string"],
+              "required": true,
+              "format": "date"
+            },
+            "version": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "\\d+(?:\\.\\d+)+"
+            },
+            "date_created": {
+              "type": ["string"],
+              "required": true,
+              "format": "date"
+            },
+            "contributors": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["string"],
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "additionalProperties": false
+  },
+  "output": {
+    "title": "D3FEND Analytic Plans Output Schema",
+    "type": "object",
+    "description": "Output schema for normalized D3FEND analytic plan documents.",
+    "fields": {
+      "analytic_plans": {
+        "type": ["list"],
+        "required": true,
+        "minItems": 1,
+        "items": {
+          "type": ["object"],
+          "fields": {
+            "information_requirement": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1,
+              "pattern": ".+\\?(?:\\s+\\([^)]+\\))*$"
+            },
+            "tactic_id": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "D3(?:-[A-Z0-9]+)*"
+            },
+            "tactic_name": {
+              "type": ["string"],
+              "required": true,
+              "minLength": 1
+            },
+            "indicators": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["object"],
+                "fields": {
+                  "technique_id": {
+                    "type": ["string"],
+                    "required": true,
+                    "pattern": "D3-[A-Z0-9]+"
+                  },
+                  "technique_name": {
+                    "type": ["string"],
+                    "required": true,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_label": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_definition": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_subclasses": {
+                    "type": ["list"],
+                    "required": false,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_d3fend_kb_article": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "technique_d3fend_kb_references": {
+                    "type": ["list"],
+                    "required": false,
+                    "items": {
+                      "type": ["object"],
+                      "fields": {
+                        "reference_id": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "reference_label": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "reference_title": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "reference_link": {
+                          "type": ["string"],
+                          "required": true,
+                          "pattern": "https?://.+"
+                        }
+                      },
+                      "additionalProperties": true
+                    }
+                  },
+                  "technique_d3fend_authenticates": {
+                    "type": ["list"],
+                    "required": false,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_d3fend_enables": {
+                    "type": ["list"],
+                    "required": false,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["string"],
+                      "minLength": 1
+                    }
+                  },
+                  "technique_d3fend_created": {
+                    "type": ["string"],
+                    "required": false,
+                    "minLength": 1
+                  },
+                  "evidence": {
+                    "type": ["list"],
+                    "required": true,
+                    "minItems": 1,
+                    "items": {
+                      "type": ["object"],
+                      "fields": {
+                        "description": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "data_sources": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "minLength": 1
+                          }
+                        },
+                        "data_platforms": {
+                          "type": ["list"],
+                          "required": true,
+                          "minItems": 1,
+                          "items": {
+                            "type": ["string"],
+                            "pattern": "TBD"
+                          }
+                        },
+                        "nai": {
+                          "type": ["string"],
+                          "required": true,
+                          "minLength": 1
+                        },
+                        "action": {
+                          "type": ["object"],
+                          "required": true,
+                          "minProperties": 1,
+                          "propertyNamesPattern": ".+",
+                          "additionalProperties": {
+                            "type": ["string"],
+                            "minLength": 1,
+                            "pattern": "(?:Symbolic Logic|Statistical Method|Machine Learning):\\s.+"
+                          }
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "last_updated": {
+              "type": ["string"],
+              "required": true,
+              "format": "date"
+            },
+            "version": {
+              "type": ["string"],
+              "required": true,
+              "pattern": "\\d+(?:\\.\\d+)+"
+            },
+            "date_created": {
+              "type": ["string"],
+              "required": true,
+              "format": "date"
+            },
+            "contributors": {
+              "type": ["list"],
+              "required": true,
+              "minItems": 1,
+              "items": {
+                "type": ["string"],
+                "minLength": 1
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      }
+    },
+    "additionalProperties": false
+  }
+}
