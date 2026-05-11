@@ -137,13 +137,12 @@ The CIM standardises how analytic results are written into tabular storage so th
 
 **Field families.**
 
-- *Provenance:* `analytic_id`, `analytic_name`, `analytic_version`, `analytic_path`, `analytic_url`, `analytic_repo_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_dirty_state`, `analytic_config_hash`, `analytic_parameters_json`, `analytic_engine`, `analytic_engine_version`, `scheduler_job_id`, `input_dataset_*`, `data_latency_seconds`.
-- *MITRE mapping (row-level, not analytic-level):* `mitre_attack_domain`, `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_subtechnique_*`, `mitre_mapping_confidence`, `mitre_mapping_rationale`, `kill_chain_phase`.
+- *Provenance:* `analytic_id`, `analytic_name`, `analytic_version`, `analytic_path`, `analytic_url`, `analytic_repo_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_config_hash`, `analytic_parameters_json`, `analytic_engine`, `input_dataset_names` (ARRAY VARCHAR of source table names).
+- *MITRE mapping (row-level, not analytic-level):* `mitre_attack_domain`, `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_subtechnique_*`.
 - *Assessment (kept separate on purpose):* `result_score` + `result_score_type` + `result_threshold` are model-native; `result_severity` is analyst-assigned impact; `behavior_likelihood` is "how likely malicious"; `analytic_confidence` is "how sufficient the evidence is". A result can be highly suspicious but low confidence because logs are incomplete, or moderate likelihood but high confidence because the evidence is deterministic.
-- *Lifecycle:* `result_status` (`new` / `updated` / `suppressed` / `closed`), `validation_state` (`candidate` / `reviewed_true_positive` / `reviewed_false_positive` / `benign_authorized` / `inconclusive`), `suppression_reason`, `review_owner`.
-- *Environment / data source:* `environment_domain`, `environment_name`, `network_zone`, `site_name`, `tenant_id`, `cloud_provider`, `cloud_account_id`, `datasource_vendor`, `datasource_product`, `datasource_table`, `sensor_id`, `log_source_type`.
-- *Entity model:* one `primary_entity_*` block (`type`, `id`, `name`, `ip`, `hostname`, `user`, `asset_criticality`, `tags`) plus typed supporting entity fields covering the host, network, cloud, OT, and container worlds.
-- *Evidence (bounded, not raw logs):* `evidence_summary` (required), `evidence_count`, `evidence_first_seen_utc` / `evidence_last_seen_utc` / `evidence_duration_seconds`, `evidence_event_ids`, `evidence_query`, `evidence_reference_uri`, plus JSON-encoded blobs `evidence_features_json`, `evidence_top_contributors_json`, `matched_conditions_json`, `sample_observations_json`, `data_quality_flags`. Storing JSON as escaped strings keeps the schema portable to tabular systems without native JSON support.
+- *Environment / data source:* `environment_domain`, `site_name`, `tenant_id`, `cloud_provider`, `cloud_account_id`, `datasource_vendor`, `datasource_product`, `log_source_type`.
+- *Entity model:* one `primary_entity_*` block (`type`, `name`, `ip`, `hostname`, `user`) plus typed supporting entity fields covering the host, network, cloud, OT, and container worlds.
+- *Evidence (bounded, not raw logs):* `result_count` (number of result rows emitted by the analytic for this run), `evidence_first_seen_utc`, `evidence_last_seen_utc`, `evidence_query`.
 
 **Wrapper document.** Each finalised document carries `cim_schema_name`, `cim_schema_version`, run metadata, the `results` list, and a `results_hash` (auto-computed by `Document.finalise()` from the canonicalised `results` array, mirroring how `findings_hash` works on `analytic_schema.json`).
 
@@ -176,12 +175,9 @@ row = {
     "mitre_tactic_name": "Execution",
     "mitre_technique_id": "T1053.005",
     "mitre_technique_name": "Scheduled Task/Job: Scheduled Task",
-    "mitre_mapping_confidence": "high",
     "result_severity": "high",
     "behavior_likelihood": "likely",
     "analytic_confidence": "moderate",
-    "result_status": "new",
-    "validation_state": "candidate",
     "environment_domain": "host",
     "primary_entity_type": "host",
     "primary_entity_hostname": "WS-1042",
@@ -189,7 +185,7 @@ row = {
     "src_process_name": "schtasks.exe",
     "result_score": 0.91,
     "result_score_type": "rule_score",
-    "evidence_summary": "Scheduled task created by non-admin user with encoded PowerShell payload.",
+    "result_count": 1,
 }
 
 doc = C.create_document(
