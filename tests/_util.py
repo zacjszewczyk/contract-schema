@@ -19,9 +19,11 @@ SCHEMA_DIR = ROOT / "schemas"
 
 ANALYTIC_J = SCHEMA_DIR / "analytic_schema.json"
 MODEL_J    = SCHEMA_DIR / "model_schema.json"
+CIM_J      = SCHEMA_DIR / "analytic_results_cim.json"
 
 ANALYTIC_C = cs.Contract.load(ANALYTIC_J)
 MODEL_C    = cs.Contract.load(MODEL_J)
+CIM_C      = cs.Contract.load(CIM_J)
 
 # ------------------------------------------------------------------ #
 # Tiny helpers                                                       #
