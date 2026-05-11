@@ -1,7 +1,7 @@
 {
     "title": "Analytic Results CIM",
     "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity. Multi-technique findings emit one row per technique; multi-entity findings select a primary entity and place supporting entities in entity-evidence fields.",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
@@ -390,6 +390,7 @@
                                     "required": false,
                                     "description": "Host-domain observation: hostname / IP / user plus the process information the analytic produced (process name, path, hash, command line, parent process).",
                                     "fields": {
+                                        "_timestamp":            {"type": ["string", "null"],  "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
                                         "hostname":              {"type": ["string", "null"],  "required": false, "description": "Hostname or FQDN of the affected host."},
                                         "ip":                    {"type": ["string", "null"],  "required": false, "description": "IP of the affected host, if known."},
                                         "user":                  {"type": ["string", "null"],  "required": false, "description": "User account associated with the finding on the host."},
@@ -413,6 +414,7 @@
                                     "required": false,
                                     "description": "Network-domain observation: source/destination addressing, transport, and application service.",
                                     "fields": {
+                                        "_timestamp":   {"type": ["string", "null"],  "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
                                         "src_ip":       {"type": ["string", "null"],  "required": false, "description": "Source IP."},
                                         "src_port":     {"type": ["integer", "null"], "required": false, "description": "Source port."},
                                         "src_hostname": {"type": ["string", "null"],  "required": false, "description": "Source hostname."},
@@ -432,6 +434,7 @@
                                     "required": false,
                                     "description": "Cloud-domain observation: provider, account/tenant, principal, resource, and API action.",
                                     "fields": {
+                                        "_timestamp":     {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
                                         "provider":       {"type": ["string", "null"], "required": false, "description": "Cloud provider (e.g., aws, azure, gcp, oci)."},
                                         "account_id":     {"type": ["string", "null"], "required": false, "description": "Account / subscription / project ID."},
                                         "tenant_id":      {"type": ["string", "null"], "required": false, "description": "Cloud or SaaS tenant ID."},
@@ -448,6 +451,7 @@
                                     "required": false,
                                     "description": "Operational-technology observation: ICS asset, protocol, and function code.",
                                     "fields": {
+                                        "_timestamp":    {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
                                         "asset_id":      {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
                                         "asset_type":    {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor, etc."},
                                         "protocol":      {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP, etc."},
@@ -458,30 +462,10 @@
                             },
                             "additionalProperties": false
                         },
-                        "results_count": {
-                            "type": ["integer"],
-                            "required": true,
-                            "description": "Number of populated typed sub-objects under `results` (i.e., how many of host / net / cloud / ot the finding touched). Always between 0 and 4."
-                        },
                         "result_count": {
                             "type": ["integer", "null"],
                             "required": false,
-                            "description": "Number of result rows emitted by the analytic for this run."
-                        },
-                        "evidence_first_seen_utc": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "First contributing event timestamp (ISO-8601 UTC when present)."
-                        },
-                        "evidence_last_seen_utc": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Last contributing event timestamp (ISO-8601 UTC when present)."
-                        },
-                        "evidence_query": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Query used to retrieve contributing events, if safe to store."
+                            "description": "Total number of result rows emitted by the analytic for this run."
                         }
                     },
                     "additionalProperties": false
