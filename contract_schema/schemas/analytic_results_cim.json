@@ -1,7 +1,7 @@
 {
     "title": "Analytic Results CIM",
     "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity. Multi-technique findings emit one row per technique; multi-entity findings select a primary entity and place supporting entities in entity-evidence fields.",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
@@ -262,11 +262,6 @@
                             "type": ["string", "null"],
                             "required": false,
                             "description": "Hash of analytic configuration or parameters."
-                        },
-                        "analytic_parameters_json": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Runtime parameters, thresholds, allowlists, and lookback windows, serialized as JSON."
                         },
                         "analytic_engine": {
                             "type": ["string", "null"],
