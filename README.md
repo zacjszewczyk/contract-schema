@@ -119,14 +119,94 @@ inputs = contract.parse_and_validate_input(None)
 
 ### Bundled Contracts
 
-The package includes two production-ready contracts:
+The package includes three production-ready contracts:
 
 - **`analytic_schema.json`** - For security analytics and data analysis pipelines. Includes fields for findings, MITRE ATT&CK mappings, and observables.
 - **`model_schema.json`** - For ML model training manifests. Includes fields for metrics, hyperparameters, and model artifacts.
+- **`analytic_results_cim.json`** - Common Information Model for analytic *results* in tabular storage. The output document carries a `results` list whose row grain is `analytic_run_id + result_id + observation_window + primary_entity + tactic_id + technique_id`. One analytic mapped to three techniques emits three rows. The schema spans host, network, cloud, identity, OT, container, and hybrid analytics under one entity model (`primary_entity_*` plus typed supporting entity fields), keeps **score**, **likelihood**, **severity**, and **confidence** as separate concerns, and stores bounded evidence (counts, references, JSON-encoded feature blobs) rather than raw events. Documents finalised against this contract auto-emit a `results_hash` for tamper-evidence.
 
 The package also includes **`analytic_plans.json`** for validating analytic plan JSON arrays such as those stored under a `techniques/` directory. It is intended for contract-driven validation of plan content rather than execution manifests.
 
-All bundled contracts share the same contract language and validator, including support for dynamic MITRE ID maps (`AN####`, `DET####`), list/object cardinality checks, and flexible MITRE timestamp parsing where needed.
+All bundled contracts share the same contract language and validator, including support for dynamic MITRE ID maps (`AN####`, `DET####`), regex-constrained scalars (e.g. `^TA[0-9]{4}$` for tactic IDs and `^T[0-9]{4}(\.[0-9]{3})?$` for technique IDs in the CIM), list/object cardinality checks, and flexible MITRE timestamp parsing where needed.
+
+### Analytic Results CIM (`analytic_results_cim.json`)
+
+The CIM standardises how analytic results are written into tabular storage so that host, network, cloud, identity, OT, container, and hybrid analytics can share one table (`analytic_results_cim`) and one set of dashboards.
+
+**Row grain.** One row = one analytic finding for one analytic run, one observation window, one primary subject, and one MITRE tactic-technique relationship. If an analytic maps to three techniques, emit three rows; if a finding involves multiple entities, choose a `primary_entity_*` and place the rest in supporting entity fields (`src_*`, `dst_*`, `cloud_*`, `ot_*`, `container_*`, `kubernetes_*`).
+
+**Field families.**
+
+- *Provenance:* `analytic_id`, `analytic_name`, `analytic_version`, `analytic_path`, `analytic_url`, `analytic_repo_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_dirty_state`, `analytic_config_hash`, `analytic_parameters_json`, `analytic_engine`, `analytic_engine_version`, `scheduler_job_id`, `input_dataset_*`, `data_latency_seconds`.
+- *MITRE mapping (row-level, not analytic-level):* `mitre_attack_domain`, `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_subtechnique_*`, `mitre_mapping_confidence`, `mitre_mapping_rationale`, `kill_chain_phase`.
+- *Assessment (kept separate on purpose):* `result_score` + `result_score_type` + `result_threshold` are model-native; `result_severity` is analyst-assigned impact; `behavior_likelihood` is "how likely malicious"; `analytic_confidence` is "how sufficient the evidence is". A result can be highly suspicious but low confidence because logs are incomplete, or moderate likelihood but high confidence because the evidence is deterministic.
+- *Lifecycle:* `result_status` (`new` / `updated` / `suppressed` / `closed`), `validation_state` (`candidate` / `reviewed_true_positive` / `reviewed_false_positive` / `benign_authorized` / `inconclusive`), `suppression_reason`, `review_owner`.
+- *Environment / data source:* `environment_domain`, `environment_name`, `network_zone`, `site_name`, `tenant_id`, `cloud_provider`, `cloud_account_id`, `datasource_vendor`, `datasource_product`, `datasource_table`, `sensor_id`, `log_source_type`.
+- *Entity model:* one `primary_entity_*` block (`type`, `id`, `name`, `ip`, `hostname`, `user`, `asset_criticality`, `tags`) plus typed supporting entity fields covering the host, network, cloud, OT, and container worlds.
+- *Evidence (bounded, not raw logs):* `evidence_summary` (required), `evidence_count`, `evidence_first_seen_utc` / `evidence_last_seen_utc` / `evidence_duration_seconds`, `evidence_event_ids`, `evidence_query`, `evidence_reference_uri`, plus JSON-encoded blobs `evidence_features_json`, `evidence_top_contributors_json`, `matched_conditions_json`, `sample_observations_json`, `data_quality_flags`. Storing JSON as escaped strings keeps the schema portable to tabular systems without native JSON support.
+
+**Wrapper document.** Each finalised document carries `cim_schema_name`, `cim_schema_version`, run metadata, the `results` list, and a `results_hash` (auto-computed by `Document.finalise()` from the canonicalised `results` array, mirroring how `findings_hash` works on `analytic_schema.json`).
+
+**Quick example.**
+
+```python
+from contract_schema import Contract
+
+C = Contract.load("analytic_results_cim.json")
+inputs = C.parse_and_validate_input({
+    "start_dtg": "2026-05-11T13:00:00Z",
+    "end_dtg":   "2026-05-11T14:00:00Z",
+    "data_source_type": "file",
+    "data_source": "/data/sysmon.csv",
+})
+
+row = {
+    "result_id": "ar_9f03c",
+    "analytic_run_id": "run_20260511T141522Z_7ac9",
+    "dtg_utc": "2026-05-11T14:15:22Z",
+    "observation_start_utc": "2026-05-11T13:00:00Z",
+    "observation_end_utc":   "2026-05-11T14:00:00Z",
+    "run_username": "zachary.szewczyk",
+    "analytic_id": "scheduled_task_creation",
+    "analytic_name": "Suspicious Scheduled Task Creation",
+    "analytic_description": "Identifies suspicious scheduled task creation with anomalous command content.",
+    "analytic_version": "1.0.0",
+    "mitre_attack_domain": "enterprise",
+    "mitre_tactic_id": "TA0002",
+    "mitre_tactic_name": "Execution",
+    "mitre_technique_id": "T1053.005",
+    "mitre_technique_name": "Scheduled Task/Job: Scheduled Task",
+    "mitre_mapping_confidence": "high",
+    "result_severity": "high",
+    "behavior_likelihood": "likely",
+    "analytic_confidence": "moderate",
+    "result_status": "new",
+    "validation_state": "candidate",
+    "environment_domain": "host",
+    "primary_entity_type": "host",
+    "primary_entity_hostname": "WS-1042",
+    "primary_entity_user": "CORP\\jsmith",
+    "src_process_name": "schtasks.exe",
+    "result_score": 0.91,
+    "result_score_type": "rule_score",
+    "evidence_summary": "Scheduled task created by non-admin user with encoded PowerShell payload.",
+}
+
+doc = C.create_document(
+    cim_schema_name="analytic_results_cim",
+    cim_schema_version="1.0.0",
+    input_schema_version=C.version,
+    output_schema_version=C.version,
+    inputs=inputs,
+    results=[row],
+    status="success", exit_code=0,
+    author="Your Name", author_organization="Your Org",
+    contact="you@example.com", license="MIT",
+    documentation_link="https://example.com",
+)
+doc.finalise()                  # validates + computes results_hash
+doc.save("cim_results.json")
+```
 
 ### Creating Custom Contracts
 
@@ -153,6 +233,9 @@ contract-schema/        # Repository root
 |   |__ utils.py         # Shared helpers (hashing, timestamps, etc.)
 |   |__ schemas/         # Bundled contracts
 |       |__ analytic_schema.json
+|       |__ analytic_results_cim.json
+|       |__ analytic_plans.json
+|       |__ analytic_plans_d3fend.json
 |       |__ model_schema.json
 |       |__ contract_meta_schema.json
 |

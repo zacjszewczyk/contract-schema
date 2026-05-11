@@ -1,0 +1,669 @@
+{
+    "title": "Analytic Results CIM",
+    "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity. Multi-technique findings emit one row per technique; multi-entity findings select a primary entity and place supporting entities in entity-evidence fields.",
+    "version": "1.0.0",
+    "input": {
+        "title": "Analytic Results CIM Input Schema",
+        "type": "object",
+        "description": "Parameters describing how a CIM-conformant result set was produced. These mirror the standard analytic_schema inputs so that any analytic emitting CIM rows can validate its own runtime configuration.",
+        "fields": {
+            "start_dtg": {
+                "type": ["string"],
+                "required": true,
+                "format": "date-time",
+                "description": "Inclusive UTC timestamp (ISO 8601) marking the first data element evaluated."
+            },
+            "end_dtg": {
+                "type": ["string"],
+                "required": true,
+                "format": "date-time",
+                "description": "Exclusive UTC timestamp (ISO 8601) marking the end of the data window."
+            },
+            "data_source_type": {
+                "type": ["string"],
+                "required": true,
+                "enum": ["file", "IONIC", "api"],
+                "description": "Transport mechanism used to retrieve data for the run."
+            },
+            "data_source": {
+                "type": ["string"],
+                "required": true,
+                "description": "Path, identifier, or URL the runner used to fetch the dataset."
+            },
+            "log_path": {
+                "type": ["string"],
+                "required": false,
+                "default": "stdout",
+                "description": "Filesystem path or stream for execution logs. Default 'stdout'."
+            },
+            "output": {
+                "type": ["string"],
+                "required": false,
+                "default": "stdout",
+                "description": "Destination for the CIM results document. Supports 'stdout' or a file path."
+            },
+            "analytic_parameters": {
+                "type": ["object", "string"],
+                "required": false,
+                "default": {},
+                "description": "Arbitrary JSON object or path to JSON file containing analytic-specific tuning knobs."
+            },
+            "verbosity": {
+                "type": ["string"],
+                "required": false,
+                "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"],
+                "default": "INFO",
+                "description": "Lowest log-severity level that will be emitted (default INFO)."
+            }
+        },
+        "additionalProperties": true
+    },
+    "output": {
+        "title": "Analytic Results CIM Output Schema",
+        "type": "object",
+        "description": "Wrapper document containing one or more CIM result rows along with run-scoped metadata. The 'results' list is the canonical CIM payload; everything else is provenance, audit, and execution context.",
+        "fields": {
+            "cim_schema_name": {
+                "type": ["string"],
+                "required": true,
+                "enum": ["analytic_results_cim"],
+                "description": "Stable identifier for this CIM. Allows downstream consumers to dispatch on schema family."
+            },
+            "cim_schema_version": {
+                "type": ["string"],
+                "required": true,
+                "pattern": "^\\d+\\.\\d+\\.\\d+$",
+                "description": "Semantic version of the CIM row schema embedded in this document."
+            },
+            "input_schema_version": {
+                "type": ["string"],
+                "required": true,
+                "description": "Echo of the input contract version used for this run."
+            },
+            "output_schema_version": {
+                "type": ["string"],
+                "required": true,
+                "description": "Semantic-version identifier for this output contract."
+            },
+            "initialization_dtg": {
+                "type": ["string"],
+                "required": true,
+                "format": "date-time",
+                "description": "UTC timestamp (ISO-8601) when the document was instantiated."
+            },
+            "finalization_dtg": {
+                "type": ["string"],
+                "required": true,
+                "format": "date-time",
+                "description": "UTC timestamp (ISO-8601) when finalise() completed."
+            },
+            "total_runtime_seconds": {
+                "type": ["integer"],
+                "required": true,
+                "description": "Elapsed seconds between initialization_dtg and finalization_dtg."
+            },
+            "run_id": {
+                "type": ["string"],
+                "required": true,
+                "description": "Globally unique identifier (UUID v4 recommended) assigned at run start. Equivalent to analytic_run_id on each row."
+            },
+            "execution_environment": {
+                "type": ["object"],
+                "required": true,
+                "description": "Software and hardware context in which the analytic ran.",
+                "fields": {
+                    "python_version": {
+                        "type": ["string"],
+                        "required": true,
+                        "description": "Exact Python interpreter version."
+                    },
+                    "library_dependencies": {
+                        "type": ["object"],
+                        "required": true,
+                        "description": "Map of critical libraries with exact versions."
+                    },
+                    "operating_system": {
+                        "type": ["string"],
+                        "required": true,
+                        "description": "OS name and version the analytic ran on."
+                    },
+                    "username": {
+                        "type": ["string"],
+                        "required": true,
+                        "description": "User account that executed the analytic."
+                    },
+                    "hardware_specs": {
+                        "type": ["object"],
+                        "required": true,
+                        "description": "Key hardware details (CPU, GPU, RAM).",
+                        "fields": {
+                            "cpu": {"type": ["string"], "required": true, "description": "CPU model."},
+                            "gpu": {"type": ["string"], "required": false, "description": "GPU model, if applicable."},
+                            "ram": {"type": ["string"], "required": true, "description": "Total system RAM."}
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "additionalProperties": false
+            },
+            "author": {"type": ["string"], "required": true, "description": "Primary author."},
+            "author_organization": {"type": ["string"], "required": true, "description": "Author's organization at the time of execution."},
+            "contact": {"type": ["string"], "required": true, "description": "Email or link for questions and comments."},
+            "license": {"type": ["string"], "required": true, "description": "Software license under which the code or outputs are released."},
+            "documentation_link": {"type": ["string"], "required": true, "description": "URL to a paper, blog post, or other resource for more information."},
+            "status": {
+                "type": ["string"],
+                "required": true,
+                "enum": ["success", "fail", "warning", "UNKNOWN"],
+                "description": "High-level execution outcome."
+            },
+            "exit_code": {"type": ["integer"], "required": true, "description": "Process exit status (0 = success)."},
+            "messages": {
+                "type": ["list"],
+                "required": false,
+                "description": "Ordered log entries generated during execution.",
+                "items": {
+                    "fields": {
+                        "timestamp": {"type": ["string"], "format": "date-time", "required": true},
+                        "level": {"type": ["string"], "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"], "required": true},
+                        "text": {"type": ["string"], "required": true}
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "inputs": {"type": ["object"], "required": true, "description": "Verbatim copy of the input parameter object for auditability."},
+            "input_hash": {"type": ["string"], "required": true, "description": "SHA-256 hash of the canonicalised inputs object."},
+            "results": {
+                "type": ["list"],
+                "required": true,
+                "description": "Ordered list of CIM result rows emitted by this run. Row grain: analytic_run_id + result_id + observation_window + primary_entity + tactic_id + technique_id.",
+                "items": {
+                    "type": ["object"],
+                    "fields": {
+                        "result_id": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Globally unique ID for this result row. Prefer a deterministic hash of run ID, analytic, entity, time window, and technique."
+                        },
+                        "analytic_run_id": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Unique ID for one execution of the analytic. Matches the document-level run_id."
+                        },
+                        "dtg_utc": {
+                            "type": ["string"],
+                            "required": true,
+                            "format": "date-time",
+                            "description": "Time the result was produced, ISO-8601 UTC."
+                        },
+                        "observation_start_utc": {
+                            "type": ["string"],
+                            "required": true,
+                            "format": "date-time",
+                            "description": "Start of the data window evaluated."
+                        },
+                        "observation_end_utc": {
+                            "type": ["string"],
+                            "required": true,
+                            "format": "date-time",
+                            "description": "End of the data window evaluated."
+                        },
+                        "run_username": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Username of the person or service account that ran the analytic."
+                        },
+                        "run_user_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Stable user or service account ID."
+                        },
+                        "analytic_id": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Stable unique analytic identifier independent of file path."
+                        },
+                        "analytic_name": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Human-readable analytic name."
+                        },
+                        "analytic_description": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Plain-language description of analytic behavior."
+                        },
+                        "analytic_path": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Repository path to analytic source."
+                        },
+                        "analytic_url": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "URL to analytic source or rendered analytic page."
+                        },
+                        "analytic_repo_url": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Repository URL."
+                        },
+                        "analytic_branch": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Git branch used at execution."
+                        },
+                        "analytic_commit_hash": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Git commit used for execution."
+                        },
+                        "analytic_dirty_state": {
+                            "type": ["boolean", "null"],
+                            "required": false,
+                            "description": "Whether local uncommitted changes existed at execution time."
+                        },
+                        "analytic_version": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Semantic version, release tag, or internal version."
+                        },
+                        "analytic_config_hash": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Hash of analytic configuration or parameters."
+                        },
+                        "analytic_parameters_json": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Runtime parameters, thresholds, allowlists, and lookback windows, serialized as JSON."
+                        },
+                        "analytic_engine": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Execution engine or framework."
+                        },
+                        "analytic_engine_version": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Engine version."
+                        },
+                        "scheduler_job_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Job ID if run from a scheduler/orchestrator."
+                        },
+                        "input_dataset_names": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Comma-separated source dataset names."
+                        },
+                        "input_dataset_ids": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Stable IDs of input datasets."
+                        },
+                        "input_time_range_utc": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Human-readable input time range, if needed."
+                        },
+                        "data_latency_seconds": {
+                            "type": ["integer", "null"],
+                            "required": false,
+                            "description": "Difference between latest observed event and result production time."
+                        },
+                        "mitre_attack_domain": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["enterprise", "mobile", "ics", "cloud"],
+                            "description": "ATT&CK domain. Local profiles should map onto one of these values."
+                        },
+                        "mitre_tactic_id": {
+                            "type": ["string"],
+                            "required": true,
+                            "pattern": "^TA[0-9]{4}$",
+                            "description": "ATT&CK tactic ID (e.g., TA0002)."
+                        },
+                        "mitre_tactic_name": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "ATT&CK tactic name."
+                        },
+                        "mitre_technique_id": {
+                            "type": ["string"],
+                            "required": true,
+                            "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$",
+                            "description": "ATT&CK technique or sub-technique ID. Store the most specific form (e.g., T1053.005, not T1053)."
+                        },
+                        "mitre_technique_name": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "ATT&CK technique name."
+                        },
+                        "mitre_subtechnique_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "pattern": "^T[0-9]{4}\\.[0-9]{3}$",
+                            "description": "Optional explicit sub-technique ID, if separate from mitre_technique_id."
+                        },
+                        "mitre_subtechnique_name": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Optional sub-technique name."
+                        },
+                        "mitre_mapping_confidence": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["low", "moderate", "high"],
+                            "description": "Confidence in the ATT&CK mapping itself."
+                        },
+                        "mitre_mapping_rationale": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Why this analytic maps to this tactic-technique pair."
+                        },
+                        "kill_chain_phase": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Optional local kill-chain or mission-phase mapping."
+                        },
+                        "result_score": {
+                            "type": ["number", "null"],
+                            "required": false,
+                            "description": "Analytic-native score, usually 0.0-1.0."
+                        },
+                        "result_score_type": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "enum": ["probability", "risk_score", "z_score", "rule_score", "distance", "rank", null],
+                            "description": "Interpretation of result_score."
+                        },
+                        "result_threshold": {
+                            "type": ["number", "null"],
+                            "required": false,
+                            "description": "Threshold used to produce this result."
+                        },
+                        "result_severity": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["informational", "low", "medium", "high", "critical"],
+                            "description": "Analyst-assessed severity."
+                        },
+                        "behavior_likelihood": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["unlikely", "possible", "likely", "highly_likely"],
+                            "description": "How likely the behavior is malicious."
+                        },
+                        "analytic_confidence": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["low", "moderate", "high"],
+                            "description": "Sufficiency of method/evidence. Distinct from behavior_likelihood: a result can be highly suspicious but low confidence because logs are incomplete."
+                        },
+                        "confidence_rationale": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Why analytic_confidence was assigned."
+                        },
+                        "priority": {
+                            "type": ["integer", "null"],
+                            "required": false,
+                            "description": "Queue priority (e.g., 1-100)."
+                        },
+                        "risk_explanation": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Analyst-facing explanation of why the result matters."
+                        },
+                        "false_positive_hypothesis": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Most likely benign explanation."
+                        },
+                        "recommended_action": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "First triage action."
+                        },
+                        "result_status": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["new", "updated", "suppressed", "closed"],
+                            "description": "Result lifecycle status."
+                        },
+                        "validation_state": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["candidate", "reviewed_true_positive", "reviewed_false_positive", "benign_authorized", "inconclusive"],
+                            "description": "Whether this is merely analytic output or analyst-validated."
+                        },
+                        "suppression_reason": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "If result_status is 'suppressed', why."
+                        },
+                        "review_owner": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Assigned analyst or team."
+                        },
+                        "environment_domain": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["host", "network", "cloud", "identity", "ot", "container", "hybrid"],
+                            "description": "Primary environment type."
+                        },
+                        "environment_name": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Operational environment, enclave, tenant, or mission network."
+                        },
+                        "network_zone": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Zone, subnet, enclave, OT cell/area, or trust boundary."
+                        },
+                        "site_name": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Physical or logical site."
+                        },
+                        "tenant_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Cloud/SaaS tenant ID, if applicable."
+                        },
+                        "cloud_provider": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Cloud provider (e.g., aws, azure, gcp, oci)."
+                        },
+                        "cloud_account_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Account/subscription/project ID."
+                        },
+                        "datasource_vendor": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Vendor or platform."
+                        },
+                        "datasource_product": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Product or service."
+                        },
+                        "datasource_table": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Source table or dataset name."
+                        },
+                        "sensor_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Sensor, collector, agent, or appliance ID."
+                        },
+                        "log_source_type": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "enum": ["endpoint", "network", "identity", "cloud_control_plane", "ot_telemetry", null],
+                            "description": "Normalized log source type."
+                        },
+                        "primary_entity_type": {
+                            "type": ["string"],
+                            "required": true,
+                            "enum": ["user", "host", "process", "ip", "domain", "cloud_principal", "cloud_resource", "ot_asset", "container"],
+                            "description": "Main subject of the result."
+                        },
+                        "primary_entity_id": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Stable canonical ID, if available."
+                        },
+                        "primary_entity_name": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Human-readable name."
+                        },
+                        "primary_entity_ip": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "IP, if relevant to the primary entity."
+                        },
+                        "primary_entity_hostname": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Hostname/FQDN, if relevant to the primary entity."
+                        },
+                        "primary_entity_user": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "User, if relevant to the primary entity."
+                        },
+                        "primary_entity_asset_criticality": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "enum": ["low", "medium", "high", "mission_critical", null],
+                            "description": "Asset criticality classification."
+                        },
+                        "primary_entity_tags": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Tags such as role, owner, mission, application. Stored as a JSON-encoded string for tabular storage."
+                        },
+                        "src_ip": {"type": ["string", "null"], "required": false, "description": "Source IP."},
+                        "src_port": {"type": ["integer", "null"], "required": false, "description": "Source port."},
+                        "src_hostname": {"type": ["string", "null"], "required": false, "description": "Source hostname."},
+                        "src_user": {"type": ["string", "null"], "required": false, "description": "Source user/principal."},
+                        "src_process_name": {"type": ["string", "null"], "required": false, "description": "Source process name."},
+                        "src_process_path": {"type": ["string", "null"], "required": false, "description": "Source process path."},
+                        "src_process_hash": {"type": ["string", "null"], "required": false, "description": "File hash of source process, preferably SHA-256."},
+                        "dst_ip": {"type": ["string", "null"], "required": false, "description": "Destination IP."},
+                        "dst_port": {"type": ["integer", "null"], "required": false, "description": "Destination port."},
+                        "dst_hostname": {"type": ["string", "null"], "required": false, "description": "Destination hostname."},
+                        "dst_domain": {"type": ["string", "null"], "required": false, "description": "Queried or contacted domain."},
+                        "dst_url": {"type": ["string", "null"], "required": false, "description": "URL, if applicable."},
+                        "protocol": {"type": ["string", "null"], "required": false, "description": "Network or application protocol."},
+                        "service_name": {"type": ["string", "null"], "required": false, "description": "Service, cloud API, Windows service, OT protocol, etc."},
+                        "cloud_principal_id": {"type": ["string", "null"], "required": false, "description": "Cloud principal/user/role ID."},
+                        "cloud_principal_name": {"type": ["string", "null"], "required": false, "description": "Cloud principal name."},
+                        "cloud_resource_id": {"type": ["string", "null"], "required": false, "description": "Cloud resource identifier."},
+                        "cloud_resource_type": {"type": ["string", "null"], "required": false, "description": "VM, bucket, key vault, IAM role, etc."},
+                        "cloud_api_action": {"type": ["string", "null"], "required": false, "description": "Cloud API action invoked."},
+                        "ot_asset_id": {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
+                        "ot_asset_type": {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor, etc."},
+                        "ot_protocol": {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP, etc."},
+                        "ot_function_code": {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."},
+                        "container_id": {"type": ["string", "null"], "required": false, "description": "Container ID."},
+                        "container_image": {"type": ["string", "null"], "required": false, "description": "Container image."},
+                        "kubernetes_namespace": {"type": ["string", "null"], "required": false, "description": "Kubernetes namespace."},
+                        "kubernetes_pod": {"type": ["string", "null"], "required": false, "description": "Kubernetes pod name."},
+                        "kubernetes_cluster": {"type": ["string", "null"], "required": false, "description": "Kubernetes cluster name."},
+                        "evidence_summary": {
+                            "type": ["string"],
+                            "required": true,
+                            "description": "Short human-readable evidence summary."
+                        },
+                        "evidence_count": {
+                            "type": ["integer", "null"],
+                            "required": false,
+                            "description": "Number of events/records contributing to the result."
+                        },
+                        "evidence_first_seen_utc": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "format": "date-time",
+                            "description": "First contributing event timestamp."
+                        },
+                        "evidence_last_seen_utc": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "format": "date-time",
+                            "description": "Last contributing event timestamp."
+                        },
+                        "evidence_duration_seconds": {
+                            "type": ["integer", "null"],
+                            "required": false,
+                            "description": "Duration of observed behavior."
+                        },
+                        "evidence_event_ids": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Source event IDs, row IDs, or trace IDs. JSON-encoded string for tabular storage."
+                        },
+                        "evidence_query": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Query used to retrieve contributing events, if safe to store."
+                        },
+                        "evidence_reference_uri": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Link or path to a supporting event bundle, notebook, dashboard, or object store."
+                        },
+                        "evidence_features_json": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Key feature values such as counts, entropy, rarity, bytes, failed logons. JSON-encoded string for tabular storage."
+                        },
+                        "evidence_top_contributors_json": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Top explanatory drivers, useful for ML/anomaly analytics. JSON-encoded string."
+                        },
+                        "matched_conditions_json": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Rule clauses, predicates, thresholds, or model conditions that fired. JSON-encoded string."
+                        },
+                        "sample_observations_json": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Small bounded sample of supporting observations, sanitized if needed. JSON-encoded string."
+                        },
+                        "data_quality_flags": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Missing fields, stale sensor, partial logs, parsing errors, clock skew. JSON-encoded string for tabular storage."
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            },
+            "results_hash": {
+                "type": ["string"],
+                "required": true,
+                "description": "SHA-256 (or stronger) hash of the serialised results array."
+            },
+            "additional_run_properties": {
+                "type": ["object"],
+                "required": false,
+                "description": "Arbitrary, user-supplied key-value metadata that applies to the entire run.",
+                "additionalProperties": true
+            }
+        },
+        "additionalProperties": false
+    }
+}

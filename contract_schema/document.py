@@ -91,6 +91,9 @@ class Document(dict):
         if "findings" in self and "findings_hash" in self.__schema.get("fields", {}):
             self["findings_hash"] = utils._hash(self["findings"])
 
+        if "results" in self and "results_hash" in self.__schema.get("fields", {}):
+            self["results_hash"] = utils._hash(self["results"])
+
         if "model_file_path" in self and "model_file_hash" in self.__schema.get("fields", {}):
             path_str = self.get("model_file_path") or self.get("model_path")
             self["model_file_hash"] = (
