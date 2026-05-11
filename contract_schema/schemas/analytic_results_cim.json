@@ -1,7 +1,7 @@
 {
     "title": "Analytic Results CIM",
     "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity. Multi-technique findings emit one row per technique; multi-entity findings select a primary entity and place supporting entities in entity-evidence fields.",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
@@ -363,21 +363,6 @@
                             "required": false,
                             "description": "Physical or logical site."
                         },
-                        "tenant_id": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Cloud/SaaS tenant ID, if applicable."
-                        },
-                        "cloud_provider": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Cloud provider (e.g., aws, azure, gcp, oci)."
-                        },
-                        "cloud_account_id": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Account/subscription/project ID."
-                        },
                         "datasource_vendor": {
                             "type": ["string", "null"],
                             "required": false,
@@ -398,56 +383,91 @@
                             "type": ["string"],
                             "required": true,
                             "enum": ["user", "host", "process", "ip", "domain", "cloud_principal", "cloud_resource", "ot_asset", "container"],
-                            "description": "Main subject of the result."
+                            "description": "Main subject of the result. Indicates which sub-object under the row's `results` field is the primary subject; the other typed buckets (when present) describe supporting context."
                         },
-                        "primary_entity_name": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Human-readable name."
+                        "results": {
+                            "type": ["object"],
+                            "required": true,
+                            "description": "Typed observation buckets for this finding. Populate one or more of `host`, `net`, `cloud`, `ot` with the entity / observation fields for that domain. Buckets that do not apply MUST be omitted (or set to null) so `results_count` reflects how many domains the finding actually touched.",
+                            "fields": {
+                                "host": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Host-domain observation: hostname / IP / user plus the process information the analytic produced (process name, path, hash, command line, parent process).",
+                                    "fields": {
+                                        "hostname":              {"type": ["string", "null"],  "required": false, "description": "Hostname or FQDN of the affected host."},
+                                        "ip":                    {"type": ["string", "null"],  "required": false, "description": "IP of the affected host, if known."},
+                                        "user":                  {"type": ["string", "null"],  "required": false, "description": "User account associated with the finding on the host."},
+                                        "process_name":          {"type": ["string", "null"],  "required": false, "description": "Process basename observed by the analytic (e.g. 'schtasks.exe')."},
+                                        "process_path":          {"type": ["string", "null"],  "required": false, "description": "Full image path of the observed process."},
+                                        "process_hash":          {"type": ["string", "null"],  "required": false, "description": "File hash of the observed process, preferably SHA-256."},
+                                        "process_id":            {"type": ["integer", "null"], "required": false, "description": "OS process identifier."},
+                                        "process_guid":          {"type": ["string", "null"],  "required": false, "description": "Stable process identifier (e.g. Sysmon ProcessGuid)."},
+                                        "process_command_line":  {"type": ["string", "null"],  "required": false, "description": "Command line used to invoke the observed process."},
+                                        "parent_process_name":   {"type": ["string", "null"],  "required": false, "description": "Parent process basename."},
+                                        "parent_process_path":   {"type": ["string", "null"],  "required": false, "description": "Parent process image path."},
+                                        "parent_process_id":     {"type": ["integer", "null"], "required": false, "description": "Parent process identifier."},
+                                        "target_process_name":   {"type": ["string", "null"],  "required": false, "description": "Target process basename for cross-process analytics (e.g. lsass.exe in T1003.001)."},
+                                        "target_process_path":   {"type": ["string", "null"],  "required": false, "description": "Target process image path for cross-process analytics."},
+                                        "target_process_id":     {"type": ["integer", "null"], "required": false, "description": "Target process identifier for cross-process analytics."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "net": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Network-domain observation: source/destination addressing, transport, and application service.",
+                                    "fields": {
+                                        "src_ip":       {"type": ["string", "null"],  "required": false, "description": "Source IP."},
+                                        "src_port":     {"type": ["integer", "null"], "required": false, "description": "Source port."},
+                                        "src_hostname": {"type": ["string", "null"],  "required": false, "description": "Source hostname."},
+                                        "src_user":     {"type": ["string", "null"],  "required": false, "description": "Source user/principal."},
+                                        "dst_ip":       {"type": ["string", "null"],  "required": false, "description": "Destination IP."},
+                                        "dst_port":     {"type": ["integer", "null"], "required": false, "description": "Destination port."},
+                                        "dst_hostname": {"type": ["string", "null"],  "required": false, "description": "Destination hostname."},
+                                        "dst_domain":   {"type": ["string", "null"],  "required": false, "description": "Queried or contacted domain."},
+                                        "dst_url":      {"type": ["string", "null"],  "required": false, "description": "URL, if applicable."},
+                                        "protocol":     {"type": ["string", "null"],  "required": false, "description": "Network or application protocol."},
+                                        "service_name": {"type": ["string", "null"],  "required": false, "description": "Service or application protocol name."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "cloud": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Cloud-domain observation: provider, account/tenant, principal, resource, and API action.",
+                                    "fields": {
+                                        "provider":       {"type": ["string", "null"], "required": false, "description": "Cloud provider (e.g., aws, azure, gcp, oci)."},
+                                        "account_id":     {"type": ["string", "null"], "required": false, "description": "Account / subscription / project ID."},
+                                        "tenant_id":      {"type": ["string", "null"], "required": false, "description": "Cloud or SaaS tenant ID."},
+                                        "principal_id":   {"type": ["string", "null"], "required": false, "description": "Cloud principal / user / role ID."},
+                                        "principal_name": {"type": ["string", "null"], "required": false, "description": "Cloud principal name."},
+                                        "resource_id":    {"type": ["string", "null"], "required": false, "description": "Cloud resource identifier."},
+                                        "resource_type":  {"type": ["string", "null"], "required": false, "description": "VM, bucket, key vault, IAM role, etc."},
+                                        "api_action":     {"type": ["string", "null"], "required": false, "description": "Cloud API action invoked."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "ot": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Operational-technology observation: ICS asset, protocol, and function code.",
+                                    "fields": {
+                                        "asset_id":      {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
+                                        "asset_type":    {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor, etc."},
+                                        "protocol":      {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP, etc."},
+                                        "function_code": {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."}
+                                    },
+                                    "additionalProperties": false
+                                }
+                            },
+                            "additionalProperties": false
                         },
-                        "primary_entity_ip": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "IP, if relevant to the primary entity."
+                        "results_count": {
+                            "type": ["integer"],
+                            "required": true,
+                            "description": "Number of populated typed sub-objects under `results` (i.e., how many of host / net / cloud / ot the finding touched). Always between 0 and 4."
                         },
-                        "primary_entity_hostname": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Hostname/FQDN, if relevant to the primary entity."
-                        },
-                        "primary_entity_user": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "User, if relevant to the primary entity."
-                        },
-                        "src_ip": {"type": ["string", "null"], "required": false, "description": "Source IP."},
-                        "src_port": {"type": ["integer", "null"], "required": false, "description": "Source port."},
-                        "src_hostname": {"type": ["string", "null"], "required": false, "description": "Source hostname."},
-                        "src_user": {"type": ["string", "null"], "required": false, "description": "Source user/principal."},
-                        "src_process_name": {"type": ["string", "null"], "required": false, "description": "Source process name."},
-                        "src_process_path": {"type": ["string", "null"], "required": false, "description": "Source process path."},
-                        "src_process_hash": {"type": ["string", "null"], "required": false, "description": "File hash of source process, preferably SHA-256."},
-                        "dst_ip": {"type": ["string", "null"], "required": false, "description": "Destination IP."},
-                        "dst_port": {"type": ["integer", "null"], "required": false, "description": "Destination port."},
-                        "dst_hostname": {"type": ["string", "null"], "required": false, "description": "Destination hostname."},
-                        "dst_domain": {"type": ["string", "null"], "required": false, "description": "Queried or contacted domain."},
-                        "dst_url": {"type": ["string", "null"], "required": false, "description": "URL, if applicable."},
-                        "protocol": {"type": ["string", "null"], "required": false, "description": "Network or application protocol."},
-                        "service_name": {"type": ["string", "null"], "required": false, "description": "Service, cloud API, Windows service, OT protocol, etc."},
-                        "cloud_principal_id": {"type": ["string", "null"], "required": false, "description": "Cloud principal/user/role ID."},
-                        "cloud_principal_name": {"type": ["string", "null"], "required": false, "description": "Cloud principal name."},
-                        "cloud_resource_id": {"type": ["string", "null"], "required": false, "description": "Cloud resource identifier."},
-                        "cloud_resource_type": {"type": ["string", "null"], "required": false, "description": "VM, bucket, key vault, IAM role, etc."},
-                        "cloud_api_action": {"type": ["string", "null"], "required": false, "description": "Cloud API action invoked."},
-                        "ot_asset_id": {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
-                        "ot_asset_type": {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor, etc."},
-                        "ot_protocol": {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP, etc."},
-                        "ot_function_code": {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."},
-                        "container_id": {"type": ["string", "null"], "required": false, "description": "Container ID."},
-                        "container_image": {"type": ["string", "null"], "required": false, "description": "Container image."},
-                        "kubernetes_namespace": {"type": ["string", "null"], "required": false, "description": "Kubernetes namespace."},
-                        "kubernetes_pod": {"type": ["string", "null"], "required": false, "description": "Kubernetes pod name."},
-                        "kubernetes_cluster": {"type": ["string", "null"], "required": false, "description": "Kubernetes cluster name."},
                         "result_count": {
                             "type": ["integer", "null"],
                             "required": false,

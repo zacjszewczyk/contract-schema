@@ -140,8 +140,8 @@ The CIM standardises how analytic results are written into tabular storage so th
 - *Provenance:* `analytic_id`, `analytic_name`, `analytic_version`, `analytic_path`, `analytic_url`, `analytic_repo_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_config_hash`, `analytic_parameters_json`, `analytic_engine`, `input_dataset_names` (ARRAY VARCHAR of source table names).
 - *MITRE mapping (row-level, not analytic-level):* `mitre_attack_domain`, `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_subtechnique_*`.
 - *Assessment (kept separate on purpose):* `result_score` + `result_score_type` + `result_threshold` are model-native; `result_severity` is analyst-assigned impact; `behavior_likelihood` is "how likely malicious"; `analytic_confidence` is "how sufficient the evidence is". A result can be highly suspicious but low confidence because logs are incomplete, or moderate likelihood but high confidence because the evidence is deterministic.
-- *Environment / data source:* `environment_domain`, `site_name`, `tenant_id`, `cloud_provider`, `cloud_account_id`, `datasource_vendor`, `datasource_product`, `log_source_type`.
-- *Entity model:* one `primary_entity_*` block (`type`, `name`, `ip`, `hostname`, `user`) plus typed supporting entity fields covering the host, network, cloud, OT, and container worlds.
+- *Environment / data source:* `environment_domain`, `site_name`, `datasource_vendor`, `datasource_product`, `log_source_type`. `primary_entity_type` names which sub-bucket under `results` is the subject.
+- *Typed observation buckets (NEW in 1.2.0):* every row carries a `results` object with optional sub-objects `host`, `net`, `cloud`, `ot`. Each sub-object groups the entity / observation fields for that domain. The `host` bucket carries hostname / IP / user **plus** the process information the analytic produced (`process_name`, `process_path`, `process_hash`, `process_id`, `process_guid`, `process_command_line`, `parent_process_*`, `target_process_*`). Buckets that do not apply are omitted. `results_count` is an integer 0-4 reporting how many domains the finding actually touched.
 - *Evidence (bounded, not raw logs):* `result_count` (number of result rows emitted by the analytic for this run), `evidence_first_seen_utc`, `evidence_last_seen_utc`, `evidence_query`.
 
 **Wrapper document.** Each finalised document carries `cim_schema_name`, `cim_schema_version`, run metadata, the `results` list, and a `results_hash` (auto-computed by `Document.finalise()` from the canonicalised `results` array, mirroring how `findings_hash` works on `analytic_schema.json`).
@@ -180,9 +180,16 @@ row = {
     "analytic_confidence": "moderate",
     "environment_domain": "host",
     "primary_entity_type": "host",
-    "primary_entity_hostname": "WS-1042",
-    "primary_entity_user": "CORP\\jsmith",
-    "src_process_name": "schtasks.exe",
+    "results": {
+        "host": {
+            "hostname": "WS-1042",
+            "user": "CORP\\jsmith",
+            "process_name": "schtasks.exe",
+            "process_path": "C:\\Windows\\System32\\schtasks.exe",
+            "process_command_line": "schtasks /create /tn ... /tr powershell -enc ...",
+        },
+    },
+    "results_count": 1,
     "result_score": 0.91,
     "result_score_type": "rule_score",
     "result_count": 1,
