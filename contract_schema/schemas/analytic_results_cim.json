@@ -456,14 +456,12 @@
                         "evidence_first_seen_utc": {
                             "type": ["string", "null"],
                             "required": false,
-                            "format": "date-time",
-                            "description": "First contributing event timestamp."
+                            "description": "First contributing event timestamp (ISO-8601 UTC when present)."
                         },
                         "evidence_last_seen_utc": {
                             "type": ["string", "null"],
                             "required": false,
-                            "format": "date-time",
-                            "description": "Last contributing event timestamp."
+                            "description": "Last contributing event timestamp (ISO-8601 UTC when present)."
                         },
                         "evidence_query": {
                             "type": ["string", "null"],
