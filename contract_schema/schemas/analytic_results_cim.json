@@ -1,7 +1,7 @@
 {
     "title": "Analytic Results CIM",
-    "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity. Multi-technique findings emit one row per technique; multi-entity findings select a primary entity and place supporting entities in entity-evidence fields.",
-    "version": "1.4.0",
+    "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity.",
+    "version": "1.5.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
@@ -213,11 +213,6 @@
                             "required": true,
                             "description": "Username of the person or service account that ran the analytic."
                         },
-                        "analytic_id": {
-                            "type": ["string"],
-                            "required": true,
-                            "description": "Stable unique analytic identifier independent of file path."
-                        },
                         "analytic_name": {
                             "type": ["string"],
                             "required": true,
@@ -228,20 +223,10 @@
                             "required": true,
                             "description": "Plain-language description of analytic behavior."
                         },
-                        "analytic_path": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Repository path to analytic source."
-                        },
                         "analytic_url": {
                             "type": ["string", "null"],
                             "required": false,
                             "description": "URL to analytic source or rendered analytic page."
-                        },
-                        "analytic_repo_url": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Repository URL."
                         },
                         "analytic_branch": {
                             "type": ["string", "null"],
@@ -253,32 +238,16 @@
                             "required": false,
                             "description": "Git commit used for execution."
                         },
-                        "analytic_version": {
-                            "type": ["string"],
-                            "required": true,
-                            "description": "Semantic version, release tag, or internal version."
-                        },
                         "analytic_config_hash": {
                             "type": ["string", "null"],
                             "required": false,
                             "description": "Hash of analytic configuration or parameters."
-                        },
-                        "analytic_engine": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Execution engine or framework."
                         },
                         "input_dataset_names": {
                             "type": ["list", "null"],
                             "required": false,
                             "description": "Source dataset / table names used by the analytic. Stored as an ARRAY VARCHAR (list of strings) for tabular storage.",
                             "items": {"type": ["string"]}
-                        },
-                        "mitre_attack_domain": {
-                            "type": ["string"],
-                            "required": true,
-                            "enum": ["enterprise", "mobile", "ics", "cloud"],
-                            "description": "ATT&CK domain. Local profiles should map onto one of these values."
                         },
                         "mitre_tactic_id": {
                             "type": ["string"],
@@ -300,79 +269,13 @@
                         "mitre_technique_name": {
                             "type": ["string"],
                             "required": true,
-                            "description": "ATT&CK technique name."
-                        },
-                        "mitre_subtechnique_id": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "pattern": "^T[0-9]{4}\\.[0-9]{3}$",
-                            "description": "Optional explicit sub-technique ID, if separate from mitre_technique_id."
-                        },
-                        "mitre_subtechnique_name": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Optional sub-technique name."
-                        },
-                        "result_score": {
-                            "type": ["number", "null"],
-                            "required": false,
-                            "description": "Analytic-native score, usually 0.0-1.0."
-                        },
-                        "result_score_type": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "enum": ["probability", "risk_score", "z_score", "rule_score", "distance", "rank", null],
-                            "description": "Interpretation of result_score."
-                        },
-                        "result_threshold": {
-                            "type": ["number", "null"],
-                            "required": false,
-                            "description": "Threshold used to produce this result."
-                        },
-                        "result_severity": {
-                            "type": ["string"],
-                            "required": true,
-                            "enum": ["informational", "low", "medium", "high", "critical"],
-                            "description": "Analyst-assessed severity."
-                        },
-                        "behavior_likelihood": {
-                            "type": ["string"],
-                            "required": true,
-                            "enum": ["unlikely", "possible", "likely", "highly_likely"],
-                            "description": "How likely the behavior is malicious."
-                        },
-                        "analytic_confidence": {
-                            "type": ["string"],
-                            "required": true,
-                            "enum": ["low", "moderate", "high"],
-                            "description": "Sufficiency of method/evidence. Distinct from behavior_likelihood: a result can be highly suspicious but low confidence because logs are incomplete."
+                            "description": "ATT&CK technique or sub-technique name."
                         },
                         "environment_domain": {
                             "type": ["string"],
                             "required": true,
                             "enum": ["host", "network", "cloud", "identity", "ot", "container", "hybrid"],
                             "description": "Primary environment type."
-                        },
-                        "site_name": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Physical or logical site."
-                        },
-                        "datasource_vendor": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Vendor or platform."
-                        },
-                        "datasource_product": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "description": "Product or service."
-                        },
-                        "log_source_type": {
-                            "type": ["string", "null"],
-                            "required": false,
-                            "enum": ["endpoint", "network", "identity", "cloud_control_plane", "ot_telemetry", null],
-                            "description": "Normalized log source type."
                         },
                         "primary_entity_type": {
                             "type": ["string"],
