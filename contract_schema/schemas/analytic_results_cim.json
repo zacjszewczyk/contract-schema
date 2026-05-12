@@ -1,7 +1,7 @@
 {
     "title": "Analytic Results CIM",
     "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity.",
-    "version": "1.5.0",
+    "version": "1.6.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
@@ -286,12 +286,12 @@
                         "results": {
                             "type": ["object"],
                             "required": true,
-                            "description": "Typed observation buckets for this finding. Populate one or more of `host`, `net`, `cloud`, `ot` with the entity / observation fields for that domain. Buckets that do not apply MUST be omitted (or set to null) so `results_count` reflects how many domains the finding actually touched.",
+                            "description": "Typed observation buckets for this finding. Every bucket shares the same common header (`_timestamp`, `hostname`, `ip`, `user`) so cross-domain dashboards can join on the host that observed the event regardless of the analytic's primary domain. Populate the bucket(s) that match the analytic's primary domain (`host` for host analytics, `net` for network analytics, `cloud` for cloud analytics, `ot` for OT analytics, `identity` for identity-plane analytics, `container` for container/orchestrator analytics) plus any cross-domain context buckets the finding touches. Buckets that do not apply MUST be omitted (or set to null).",
                             "fields": {
                                 "host": {
                                     "type": ["object", "null"],
                                     "required": false,
-                                    "description": "Host-domain observation: hostname / IP / user plus the process information the analytic produced (process name, path, hash, command line, parent process).",
+                                    "description": "Host-domain observation: common header (`_timestamp` / `hostname` / `ip` / `user`) plus the process information the analytic produced (process name, path, hash, command line, parent process, target process for cross-process analytics).",
                                     "fields": {
                                         "_timestamp":            {"type": ["string", "null"],  "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
                                         "hostname":              {"type": ["string", "null"],  "required": false, "description": "Hostname or FQDN of the affected host."},
@@ -315,9 +315,12 @@
                                 "net": {
                                     "type": ["object", "null"],
                                     "required": false,
-                                    "description": "Network-domain observation: source/destination addressing, transport, and application service.",
+                                    "description": "Network-domain observation: common header (`_timestamp` / `hostname` / `ip` / `user`) for the host that recorded the connection plus source / destination addressing, transport, and application service. `hostname` and `ip` describe the recording sensor or endpoint; `src_*` and `dst_*` describe the two parties on the wire.",
                                     "fields": {
                                         "_timestamp":   {"type": ["string", "null"],  "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
+                                        "hostname":     {"type": ["string", "null"],  "required": false, "description": "Recording host (sensor / endpoint) hostname or FQDN."},
+                                        "ip":           {"type": ["string", "null"],  "required": false, "description": "Recording host IP, if known."},
+                                        "user":         {"type": ["string", "null"],  "required": false, "description": "User account on the recording host, if known."},
                                         "src_ip":       {"type": ["string", "null"],  "required": false, "description": "Source IP."},
                                         "src_port":     {"type": ["integer", "null"], "required": false, "description": "Source port."},
                                         "src_hostname": {"type": ["string", "null"],  "required": false, "description": "Source hostname."},
@@ -328,44 +331,109 @@
                                         "dst_domain":   {"type": ["string", "null"],  "required": false, "description": "Queried or contacted domain."},
                                         "dst_url":      {"type": ["string", "null"],  "required": false, "description": "URL, if applicable."},
                                         "protocol":     {"type": ["string", "null"],  "required": false, "description": "Network or application protocol."},
-                                        "service_name": {"type": ["string", "null"],  "required": false, "description": "Service or application protocol name."}
+                                        "service_name": {"type": ["string", "null"],  "required": false, "description": "Service or application protocol name."},
+                                        "direction":    {"type": ["string", "null"],  "required": false, "enum": ["inbound", "outbound", "internal", "external", null], "description": "Connection direction relative to the recording host."},
+                                        "bytes_in":     {"type": ["integer", "null"], "required": false, "description": "Bytes received on this flow."},
+                                        "bytes_out":    {"type": ["integer", "null"], "required": false, "description": "Bytes sent on this flow."}
                                     },
                                     "additionalProperties": false
                                 },
                                 "cloud": {
                                     "type": ["object", "null"],
                                     "required": false,
-                                    "description": "Cloud-domain observation: provider, account/tenant, principal, resource, and API action.",
+                                    "description": "Cloud-domain observation: common header (`_timestamp` / `hostname` / `ip` / `user`) plus provider, account/tenant, principal, resource, region, and API action. `hostname` and `ip` describe the workload (VM / container) the cloud event was attributed to when known; `principal_*` and `resource_*` describe the IAM identity and the API target.",
                                     "fields": {
-                                        "_timestamp":     {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
-                                        "provider":       {"type": ["string", "null"], "required": false, "description": "Cloud provider (e.g., aws, azure, gcp, oci)."},
-                                        "account_id":     {"type": ["string", "null"], "required": false, "description": "Account / subscription / project ID."},
-                                        "tenant_id":      {"type": ["string", "null"], "required": false, "description": "Cloud or SaaS tenant ID."},
-                                        "principal_id":   {"type": ["string", "null"], "required": false, "description": "Cloud principal / user / role ID."},
-                                        "principal_name": {"type": ["string", "null"], "required": false, "description": "Cloud principal name."},
-                                        "resource_id":    {"type": ["string", "null"], "required": false, "description": "Cloud resource identifier."},
-                                        "resource_type":  {"type": ["string", "null"], "required": false, "description": "VM, bucket, key vault, IAM role, etc."},
-                                        "api_action":     {"type": ["string", "null"], "required": false, "description": "Cloud API action invoked."}
+                                        "_timestamp":          {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
+                                        "hostname":            {"type": ["string", "null"], "required": false, "description": "Workload hostname (VM / container instance) the cloud event was attributed to, if applicable."},
+                                        "ip":                  {"type": ["string", "null"], "required": false, "description": "Workload IP, if known."},
+                                        "user":                {"type": ["string", "null"], "required": false, "description": "Local user account on the workload, if applicable."},
+                                        "provider":            {"type": ["string", "null"], "required": false, "description": "Cloud provider (e.g., aws, azure, gcp, oci)."},
+                                        "account_id":          {"type": ["string", "null"], "required": false, "description": "Account / subscription / project ID."},
+                                        "tenant_id":           {"type": ["string", "null"], "required": false, "description": "Cloud or SaaS tenant ID."},
+                                        "region":              {"type": ["string", "null"], "required": false, "description": "Cloud region or zone (e.g., us-east-1, eastus, us-central1)."},
+                                        "principal_id":        {"type": ["string", "null"], "required": false, "description": "Cloud principal / user / role ID."},
+                                        "principal_name":      {"type": ["string", "null"], "required": false, "description": "Cloud principal name."},
+                                        "principal_type":      {"type": ["string", "null"], "required": false, "description": "Cloud principal type (user, role, service-account, federated, ...)."},
+                                        "resource_id":         {"type": ["string", "null"], "required": false, "description": "Cloud resource identifier (ARN, resource ID, full resource name)."},
+                                        "resource_name":       {"type": ["string", "null"], "required": false, "description": "Human-readable resource name."},
+                                        "resource_type":       {"type": ["string", "null"], "required": false, "description": "VM, bucket, key vault, IAM role, etc."},
+                                        "api_action":          {"type": ["string", "null"], "required": false, "description": "Cloud API action invoked."},
+                                        "api_action_status":   {"type": ["string", "null"], "required": false, "enum": ["success", "failure", "denied", "unknown", null], "description": "Outcome of the API action."}
                                     },
                                     "additionalProperties": false
                                 },
                                 "ot": {
                                     "type": ["object", "null"],
                                     "required": false,
-                                    "description": "Operational-technology observation: ICS asset, protocol, and function code.",
+                                    "description": "Operational-technology observation: common header (`_timestamp` / `hostname` / `ip` / `user`) plus ICS asset, protocol, function code, and register details. `hostname` and `ip` describe the engineering workstation / sensor / collector that recorded the event; `asset_*` describe the OT device on the wire.",
                                     "fields": {
-                                        "_timestamp":    {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
-                                        "asset_id":      {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
-                                        "asset_type":    {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor, etc."},
-                                        "protocol":      {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP, etc."},
-                                        "function_code": {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."}
+                                        "_timestamp":      {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
+                                        "hostname":        {"type": ["string", "null"], "required": false, "description": "Recording host hostname or FQDN."},
+                                        "ip":              {"type": ["string", "null"], "required": false, "description": "Recording host IP, if known."},
+                                        "user":            {"type": ["string", "null"], "required": false, "description": "User account on the recording host, if known."},
+                                        "asset_id":        {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
+                                        "asset_type":      {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor, etc."},
+                                        "asset_vendor":    {"type": ["string", "null"], "required": false, "description": "OT asset vendor (Siemens, Allen-Bradley, Schneider, ...)."},
+                                        "asset_role":      {"type": ["string", "null"], "required": false, "description": "Operational role (controller, supervisor, operator workstation, ...)."},
+                                        "protocol":        {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP, etc."},
+                                        "function_code":   {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."},
+                                        "function_name":   {"type": ["string", "null"], "required": false, "description": "Human-readable function name (e.g. write_multiple_registers)."},
+                                        "register_address":{"type": ["string", "null"], "required": false, "description": "Targeted register / coil / tag address."},
+                                        "register_value":  {"type": ["string", "null"], "required": false, "description": "Written / read register value (string-encoded for portability)."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "identity": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Identity-plane observation: common header (`_timestamp` / `hostname` / `ip` / `user`) plus authentication / authorisation context (logon type, MFA usage, session, source endpoint, target user). Use for IdP, AD, SSO, and OAuth analytics.",
+                                    "fields": {
+                                        "_timestamp":           {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
+                                        "hostname":             {"type": ["string", "null"], "required": false, "description": "IdP / DC hostname or FQDN."},
+                                        "ip":                   {"type": ["string", "null"], "required": false, "description": "IdP / DC IP, if known."},
+                                        "user":                 {"type": ["string", "null"], "required": false, "description": "Acting user account."},
+                                        "user_id":              {"type": ["string", "null"], "required": false, "description": "Stable user identifier (SID, OID, sub claim)."},
+                                        "user_domain":          {"type": ["string", "null"], "required": false, "description": "Acting user's domain / realm / tenant."},
+                                        "user_principal_name":  {"type": ["string", "null"], "required": false, "description": "User principal name (UPN / email)."},
+                                        "session_id":           {"type": ["string", "null"], "required": false, "description": "Authentication session identifier."},
+                                        "logon_type":           {"type": ["string", "null"], "required": false, "description": "Logon mechanism (interactive, network, remote-interactive, oauth, saml, ...)."},
+                                        "logon_status":         {"type": ["string", "null"], "required": false, "enum": ["success", "failure", "denied", "unknown", null], "description": "Outcome of the authentication attempt."},
+                                        "auth_method":          {"type": ["string", "null"], "required": false, "description": "Authentication method (password, certificate, fido2, oauth_token, ...)."},
+                                        "mfa_used":             {"type": ["boolean", "null"], "required": false, "description": "Whether MFA was satisfied during this authentication."},
+                                        "src_ip":               {"type": ["string", "null"], "required": false, "description": "IP of the requesting endpoint."},
+                                        "src_hostname":         {"type": ["string", "null"], "required": false, "description": "Hostname of the requesting endpoint."},
+                                        "target_user":          {"type": ["string", "null"], "required": false, "description": "Target user (for delegation / impersonation / privilege escalation events)."},
+                                        "target_user_id":       {"type": ["string", "null"], "required": false, "description": "Stable identifier of the target user."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "container": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Container / orchestrator observation: common header (`_timestamp` / `hostname` / `ip` / `user`) plus container identity, image, namespace, pod, cluster, and the runtime command/args. Use for Docker, containerd, Kubernetes, and OpenShift analytics.",
+                                    "fields": {
+                                        "_timestamp":            {"type": ["string", "null"], "required": false, "description": "Event timestamp for this observation (ISO-8601 UTC when present)."},
+                                        "hostname":              {"type": ["string", "null"], "required": false, "description": "Container host / node hostname."},
+                                        "ip":                    {"type": ["string", "null"], "required": false, "description": "Container host / node IP."},
+                                        "user":                  {"type": ["string", "null"], "required": false, "description": "User account inside the container, if applicable."},
+                                        "container_id":          {"type": ["string", "null"], "required": false, "description": "Container runtime identifier."},
+                                        "container_name":        {"type": ["string", "null"], "required": false, "description": "Container name."},
+                                        "container_image":       {"type": ["string", "null"], "required": false, "description": "Container image reference (registry/name:tag)."},
+                                        "container_image_hash":  {"type": ["string", "null"], "required": false, "description": "Container image digest (sha256:...)."},
+                                        "namespace":             {"type": ["string", "null"], "required": false, "description": "Kubernetes namespace, if applicable."},
+                                        "pod_name":              {"type": ["string", "null"], "required": false, "description": "Kubernetes pod name, if applicable."},
+                                        "pod_uid":               {"type": ["string", "null"], "required": false, "description": "Kubernetes pod UID, if applicable."},
+                                        "node_name":             {"type": ["string", "null"], "required": false, "description": "Kubernetes node name, if applicable."},
+                                        "cluster_name":          {"type": ["string", "null"], "required": false, "description": "Cluster name, if applicable."},
+                                        "command":               {"type": ["string", "null"], "required": false, "description": "Entrypoint or command observed inside the container."},
+                                        "args":                  {"type": ["string", "null"], "required": false, "description": "Container args (string-joined for portability)."}
                                     },
                                     "additionalProperties": false
                                 },
                                 "results_payload": {
                                     "type": ["string", "null"],
                                     "required": false,
-                                    "description": "JSON-serialised payload carrying the workflow row exactly as presented to the user (the table the analyst sees in the notebook). Use this for any analyst-facing fields that do not map onto the typed host/net/cloud/ot buckets so downstream consumers reading the IONIC table still see every column. Stored as a single VARCHAR/JSON string -- do NOT add new sub-fields here."
+                                    "description": "JSON-serialised payload carrying the workflow row exactly as presented to the user (the table the analyst sees in the notebook). Use this for any analyst-facing fields that do not map onto the typed host/net/cloud/ot/identity/container buckets so downstream consumers reading the IONIC table still see every column. Stored as a single VARCHAR/JSON string -- do NOT add new sub-fields here."
                                 }
                             },
                             "additionalProperties": false

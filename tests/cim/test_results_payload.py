@@ -80,7 +80,42 @@ class ResultsPayloadTests(unittest.TestCase):
             validate(row, schema=_row_schema(), path="row")
 
     def test_schema_version_reflects_payload_addition(self):
-        self.assertEqual(C.version, "1.5.0")
+        # Bumped to 1.6.0 in this revision (standardised common header
+        # `_timestamp` / `hostname` / `ip` / `user` across every typed
+        # bucket plus new identity / container buckets).
+        self.assertEqual(C.version, "1.6.0")
+
+    def test_identity_and_container_buckets_validate(self):
+        row = _row_with_results({
+            "identity": {
+                "_timestamp": "2026-05-12T00:00:00Z",
+                "hostname": "dc-01",
+                "user": "alice",
+                "logon_type": "remote-interactive",
+                "logon_status": "success",
+                "mfa_used": True,
+            },
+            "container": {
+                "_timestamp": "2026-05-12T00:00:00Z",
+                "hostname": "node-3",
+                "container_id": "deadbeef",
+                "container_image": "nginx:1.25",
+                "namespace": "default",
+                "pod_name": "web-7",
+            },
+        })
+        validate(row, schema=_row_schema(), path="row")
+
+    def test_common_header_present_on_every_bucket(self):
+        row = _row_with_results({
+            "host":      {"_timestamp": "2026-05-12T00:00:00Z", "hostname": "h", "ip": "1.1.1.1", "user": "u", "process_name": "p.exe"},
+            "net":       {"_timestamp": "2026-05-12T00:00:00Z", "hostname": "h", "ip": "1.1.1.1", "user": "u", "src_ip": "2.2.2.2", "dst_ip": "3.3.3.3"},
+            "cloud":     {"_timestamp": "2026-05-12T00:00:00Z", "hostname": "h", "ip": "1.1.1.1", "user": "u", "provider": "aws"},
+            "ot":        {"_timestamp": "2026-05-12T00:00:00Z", "hostname": "h", "ip": "1.1.1.1", "user": "u", "asset_id": "PLC-1"},
+            "identity":  {"_timestamp": "2026-05-12T00:00:00Z", "hostname": "h", "ip": "1.1.1.1", "user": "u", "logon_status": "success"},
+            "container": {"_timestamp": "2026-05-12T00:00:00Z", "hostname": "h", "ip": "1.1.1.1", "user": "u", "container_id": "x"},
+        })
+        validate(row, schema=_row_schema(), path="row")
 
 
 if __name__ == "__main__":
