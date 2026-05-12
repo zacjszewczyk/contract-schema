@@ -361,6 +361,11 @@
                                         "function_code": {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."}
                                     },
                                     "additionalProperties": false
+                                },
+                                "results_payload": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "JSON-serialised payload carrying the workflow row exactly as presented to the user (the table the analyst sees in the notebook). Use this for any analyst-facing fields that do not map onto the typed host/net/cloud/ot buckets so downstream consumers reading the IONIC table still see every column. Stored as a single VARCHAR/JSON string -- do NOT add new sub-fields here."
                                 }
                             },
                             "additionalProperties": false

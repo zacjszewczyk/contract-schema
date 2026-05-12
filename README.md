@@ -135,14 +135,16 @@ The CIM standardises how analytic results are written into tabular storage so th
 
 **Row grain.** One row = one analytic finding for one analytic run, one observation window, one primary subject, and one MITRE tactic-technique relationship. If an analytic maps to three techniques, emit three rows; if a finding involves multiple entities, choose a `primary_entity_*` and place the rest in supporting entity fields (`src_*`, `dst_*`, `cloud_*`, `ot_*`, `container_*`, `kubernetes_*`).
 
-**Field families.**
+**Field families (v1.5.0 slim contract).**
 
-- *Provenance:* `analytic_id`, `analytic_name`, `analytic_version`, `analytic_path`, `analytic_url`, `analytic_repo_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_config_hash`, `analytic_engine`, `input_dataset_names` (ARRAY VARCHAR of source table names).
-- *MITRE mapping (row-level, not analytic-level):* `mitre_attack_domain`, `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_subtechnique_*`.
-- *Assessment (kept separate on purpose):* `result_score` + `result_score_type` + `result_threshold` are model-native; `result_severity` is analyst-assigned impact; `behavior_likelihood` is "how likely malicious"; `analytic_confidence` is "how sufficient the evidence is". A result can be highly suspicious but low confidence because logs are incomplete, or moderate likelihood but high confidence because the evidence is deterministic.
-- *Environment / data source:* `environment_domain`, `site_name`, `datasource_vendor`, `datasource_product`, `log_source_type`. `primary_entity_type` names which sub-bucket under `results` is the subject.
+- *Provenance:* `analytic_name`, `analytic_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_config_hash`, `input_dataset_names` (ARRAY VARCHAR of source table names).
+- *MITRE mapping (row-level, not analytic-level):* `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_technique_name`.
+- *Environment:* `environment_domain` plus `primary_entity_type` -- the latter names which sub-bucket under `results` is the subject.
 - *Typed observation buckets:* every row carries a `results` object with optional sub-objects `host`, `net`, `cloud`, `ot`. Each sub-object groups the entity / observation fields for that domain and carries a `_timestamp` (event time, ISO-8601 UTC). The `host` bucket carries hostname / IP / user **plus** the process information the analytic produced (`process_name`, `process_path`, `process_hash`, `process_id`, `process_guid`, `process_command_line`, `parent_process_*`, `target_process_*`). Buckets that do not apply are omitted.
+- *Catch-all payload (v1.5.0+):* `results.results_payload` is an optional **string** that holds a JSON-serialised copy of the analyst-facing row -- the same data the workflow renders in the notebook table -- so any column that does not map onto the typed buckets (vendor-specific scores, severity, confidence, datasource metadata, sub-technique, ...) is still preserved in the IONIC sink. Store the entire row as a single JSON string; do **not** add new sub-fields here. Consumers that want a typed value should either (a) extend the typed buckets with a schema bump, or (b) parse the JSON payload at read-time. Leave the field unset (or `null`) when the typed buckets already cover everything the analyst sees.
 - *Run scale:* `result_count` reports the total number of result rows the analytic emitted for the run.
+
+> *v1.5.0 dropped a number of formerly-required fields (`analytic_id`, `analytic_path`, `analytic_repo_url`, `analytic_version`, `analytic_engine`, `mitre_attack_domain`, `mitre_subtechnique_*`, `result_score`, `result_score_type`, `result_threshold`, `result_severity`, `behavior_likelihood`, `analytic_confidence`, `site_name`, `datasource_vendor`, `datasource_product`, `log_source_type`) in favour of the catch-all `results.results_payload`. Analytics that still need any of those values should serialise them into the payload string instead of reintroducing the typed columns.*
 
 **Wrapper document.** Each finalised document carries `cim_schema_name`, `cim_schema_version`, run metadata, the `results` list, and a `results_hash` (auto-computed by `Document.finalise()` from the canonicalised `results` array, mirroring how `findings_hash` works on `analytic_schema.json`).
 
@@ -166,18 +168,12 @@ row = {
     "observation_start_utc": "2026-05-11T13:00:00Z",
     "observation_end_utc":   "2026-05-11T14:00:00Z",
     "run_username": "zachary.szewczyk",
-    "analytic_id": "scheduled_task_creation",
     "analytic_name": "Suspicious Scheduled Task Creation",
     "analytic_description": "Identifies suspicious scheduled task creation with anomalous command content.",
-    "analytic_version": "1.0.0",
-    "mitre_attack_domain": "enterprise",
     "mitre_tactic_id": "TA0002",
     "mitre_tactic_name": "Execution",
     "mitre_technique_id": "T1053.005",
     "mitre_technique_name": "Scheduled Task/Job: Scheduled Task",
-    "result_severity": "high",
-    "behavior_likelihood": "likely",
-    "analytic_confidence": "moderate",
     "environment_domain": "host",
     "primary_entity_type": "host",
     "results": {
@@ -189,15 +185,18 @@ row = {
             "process_path": "C:\\Windows\\System32\\schtasks.exe",
             "process_command_line": "schtasks /create /tn ... /tr powershell -enc ...",
         },
+        # Optional v1.5.0 catch-all -- mirrors the row shown to the
+        # analyst so any extra column (score, severity, confidence,
+        # vendor-specific fields) survives the round-trip into the
+        # IONIC sink without inflating the typed schema.
+        "results_payload": '{"hostname":"WS-1042","user":"CORP\\\\jsmith","score":0.91,"reason":"encoded payload","severity":"high"}',
     },
-    "result_score": 0.91,
-    "result_score_type": "rule_score",
     "result_count": 1,
 }
 
 doc = C.create_document(
     cim_schema_name="analytic_results_cim",
-    cim_schema_version="1.0.0",
+    cim_schema_version="1.5.0",
     input_schema_version=C.version,
     output_schema_version=C.version,
     inputs=inputs,
