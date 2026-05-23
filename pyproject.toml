@@ -14,6 +14,9 @@ classifiers = [
   "Programming Language :: Python :: 3",
   "Operating System :: OS Independent"
 ]
+dependencies = [
+  "PyYAML>=6.0.1"
+]
 
 [project.optional-dependencies]
 analytic = ["pandas>=1.0"]
