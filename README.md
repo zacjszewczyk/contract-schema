@@ -30,15 +30,13 @@ Contract Schema unifies disparate I/O layers under one authoritative contract. A
 * **Input parsing:** Every field in the contract automatically becomes an `argparse` flag, a JSON key, and a CLI flag, with type enforcement, enums, regex checks, and sensible defaults injected.  
 * **Output construction:** The same contract defines the structure of your result document. A helper class injects run metadata, hashes inputs and findings for auditability, and captures execution environment details.  
 * **Meta-schema validation:** A bundled _meta-schema_ ensures every contract you write contains the minimal top-level keys (`title`, `version`, `description`, `input`, `output`) and that both `input` and `output` sections themselves declare a `fields` block. Contract mistakes are caught at load time.  
-* **No heavy dependencies:** Only the Python standard library (>= 3.8) is required. `pandas` is optional and used only when you pass a DataFrame directly as an input.  
+* **No heavy dependencies:** The package depends only on `PyYAML` (for YAML input parsing) plus the Python standard library (>= 3.8). `pandas` is optional and used only when you pass a DataFrame directly as an input.  
 
 The result is a single source of truth for I/O that works anywhere Python runs: CI pipelines, air-gapped analysis workstations, or serverless functions.
 
 ## Dependencies
 
-* **Required:** Python >= 3.8  
-
-No other external packages are needed.
+* **Required:** Python >= 3.8, `PyYAML>=6.0.1`
 
 ## Installation
 
@@ -63,7 +61,7 @@ from contract_schema import Contract
 # Load the analytic contract (bundled with the package)
 contract = Contract.load("analytic_schema.json")
 
-# Parse and validate inputs (from dict, JSON file, or CLI args)
+# Parse and validate inputs (from dict, JSON/YAML file, or CLI args)
 inputs = contract.parse_and_validate_input({
     "start_dtg": "2025-01-01T00:00:00Z",
     "end_dtg": "2025-01-02T00:00:00Z",
@@ -101,10 +99,13 @@ Inputs can be provided in multiple formats:
 # From a Python dict
 inputs = contract.parse_and_validate_input({"key": "value"})
 
-# From a JSON file path
+# From a JSON or YAML file path
 inputs = contract.parse_and_validate_input("/path/to/config.json")
 
-# From a JSON string
+# YAML also works
+inputs = contract.parse_and_validate_input("/path/to/config.yaml")
+
+# From a JSON or YAML string
 inputs = contract.parse_and_validate_input('{"key": "value"}')
 
 # From CLI arguments
