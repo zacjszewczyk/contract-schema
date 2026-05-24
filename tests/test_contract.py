@@ -4,6 +4,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 from contract_schema import Contract, loader
 from contract_schema.validator import SchemaError
 
@@ -35,6 +37,22 @@ class ContractTests(unittest.TestCase):
         bad_payload.pop("start_dtg")  # Remove a required field
         with self.assertRaises(SchemaError):
             self.contract.parse_and_validate_input(bad_payload)
+
+    def test_parse_and_validate_accepts_yaml_file_input(self):
+        with tempfile.NamedTemporaryFile("w+", suffix=".yaml", delete=False) as tmp:
+            yaml.safe_dump(self.payload, tmp)
+            tmp.flush()
+            p = Path(tmp.name)
+
+        try:
+            out = self.contract.parse_and_validate_input(p)
+            for k in self.payload:
+                self.assertEqual(out[k], self.payload[k])
+            self.assertEqual(out["log_path"], "stdout")
+            self.assertEqual(out["output"], "stdout")
+            self.assertEqual(out["verbosity"], "INFO")
+        finally:
+            p.unlink(missing_ok=True)
 
     def test_create_document_returns_instance(self):
         doc = self.contract.create_document()

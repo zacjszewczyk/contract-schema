@@ -30,15 +30,13 @@ Contract Schema unifies disparate I/O layers under one authoritative contract. A
 * **Input parsing:** Every field in the contract automatically becomes an `argparse` flag, a JSON key, and a CLI flag, with type enforcement, enums, regex checks, and sensible defaults injected.  
 * **Output construction:** The same contract defines the structure of your result document. A helper class injects run metadata, hashes inputs and findings for auditability, and captures execution environment details.  
 * **Meta-schema validation:** A bundled _meta-schema_ ensures every contract you write contains the minimal top-level keys (`title`, `version`, `description`, `input`, `output`) and that both `input` and `output` sections themselves declare a `fields` block. Contract mistakes are caught at load time.  
-* **No heavy dependencies:** Only the Python standard library (>= 3.8) is required. `pandas` is optional and used only when you pass a DataFrame directly as an input.  
+* **No heavy dependencies:** The package depends only on `PyYAML` (for YAML input parsing) plus the Python standard library (>= 3.8). `pandas` is optional and used only when you pass a DataFrame directly as an input.  
 
 The result is a single source of truth for I/O that works anywhere Python runs: CI pipelines, air-gapped analysis workstations, or serverless functions.
 
 ## Dependencies
 
-* **Required:** Python >= 3.8  
-
-No other external packages are needed.
+* **Required:** Python >= 3.8, `PyYAML>=6.0.1`
 
 ## Installation
 
@@ -63,7 +61,7 @@ from contract_schema import Contract
 # Load the analytic contract (bundled with the package)
 contract = Contract.load("analytic_schema.json")
 
-# Parse and validate inputs (from dict, JSON file, or CLI args)
+# Parse and validate inputs (from dict, JSON/YAML file, or CLI args)
 inputs = contract.parse_and_validate_input({
     "start_dtg": "2025-01-01T00:00:00Z",
     "end_dtg": "2025-01-02T00:00:00Z",
@@ -101,10 +99,13 @@ Inputs can be provided in multiple formats:
 # From a Python dict
 inputs = contract.parse_and_validate_input({"key": "value"})
 
-# From a JSON file path
+# From a JSON or YAML file path
 inputs = contract.parse_and_validate_input("/path/to/config.json")
 
-# From a JSON string
+# YAML also works
+inputs = contract.parse_and_validate_input("/path/to/config.yaml")
+
+# From a JSON or YAML string
 inputs = contract.parse_and_validate_input('{"key": "value"}')
 
 # From CLI arguments
@@ -135,15 +136,24 @@ The CIM standardises how analytic results are written into tabular storage so th
 
 **Row grain.** One row = one analytic finding for one analytic run, one observation window, one primary subject, and one MITRE tactic-technique relationship. If an analytic maps to three techniques, emit three rows; if a finding involves multiple entities, choose a `primary_entity_*` and place the rest in supporting entity fields (`src_*`, `dst_*`, `cloud_*`, `ot_*`, `container_*`, `kubernetes_*`).
 
-**Field families.**
+**Field families (v1.5.0 slim contract).**
 
-- *Provenance:* `analytic_id`, `analytic_name`, `analytic_version`, `analytic_path`, `analytic_url`, `analytic_repo_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_dirty_state`, `analytic_config_hash`, `analytic_parameters_json`, `analytic_engine`, `analytic_engine_version`, `scheduler_job_id`, `input_dataset_*`, `data_latency_seconds`.
-- *MITRE mapping (row-level, not analytic-level):* `mitre_attack_domain`, `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_subtechnique_*`, `mitre_mapping_confidence`, `mitre_mapping_rationale`, `kill_chain_phase`.
-- *Assessment (kept separate on purpose):* `result_score` + `result_score_type` + `result_threshold` are model-native; `result_severity` is analyst-assigned impact; `behavior_likelihood` is "how likely malicious"; `analytic_confidence` is "how sufficient the evidence is". A result can be highly suspicious but low confidence because logs are incomplete, or moderate likelihood but high confidence because the evidence is deterministic.
-- *Lifecycle:* `result_status` (`new` / `updated` / `suppressed` / `closed`), `validation_state` (`candidate` / `reviewed_true_positive` / `reviewed_false_positive` / `benign_authorized` / `inconclusive`), `suppression_reason`, `review_owner`.
-- *Environment / data source:* `environment_domain`, `environment_name`, `network_zone`, `site_name`, `tenant_id`, `cloud_provider`, `cloud_account_id`, `datasource_vendor`, `datasource_product`, `datasource_table`, `sensor_id`, `log_source_type`.
-- *Entity model:* one `primary_entity_*` block (`type`, `id`, `name`, `ip`, `hostname`, `user`, `asset_criticality`, `tags`) plus typed supporting entity fields covering the host, network, cloud, OT, and container worlds.
-- *Evidence (bounded, not raw logs):* `evidence_summary` (required), `evidence_count`, `evidence_first_seen_utc` / `evidence_last_seen_utc` / `evidence_duration_seconds`, `evidence_event_ids`, `evidence_query`, `evidence_reference_uri`, plus JSON-encoded blobs `evidence_features_json`, `evidence_top_contributors_json`, `matched_conditions_json`, `sample_observations_json`, `data_quality_flags`. Storing JSON as escaped strings keeps the schema portable to tabular systems without native JSON support.
+- *Provenance:* `analytic_name`, `analytic_url`, `analytic_branch`, `analytic_commit_hash`, `analytic_config_hash`, `input_dataset_names` (ARRAY VARCHAR of source table names).
+- *MITRE mapping (row-level, not analytic-level):* `mitre_tactic_id` (regex `^TA[0-9]{4}$`), `mitre_tactic_name`, `mitre_technique_id` (regex `^T[0-9]{4}(\.[0-9]{3})?$`, store the most specific form), `mitre_technique_name`.
+- *Environment:* `environment_domain` plus `primary_entity_type` -- the latter names which sub-bucket under `results` is the subject.
+- *Typed observation buckets:* every row carries a `results` object with optional sub-objects `host`, `net`, `cloud`, `ot`, `identity`, `container`. Each sub-object starts with the same **standardised common header** (`_timestamp`, `hostname`, `ip`, `user`) so cross-domain dashboards can join on the host that observed the event regardless of the analytic's primary domain. On top of the common header each bucket adds its domain-specific evidence:
+  - `results.host` -- process information (`process_name`, `process_path`, `process_hash`, `process_id`, `process_guid`, `process_command_line`, `parent_process_*`, `target_process_*`).
+  - `results.net` -- network connection info (`src_*`, `dst_*`, `protocol`, `service_name`, `direction`, `bytes_in`, `bytes_out`). The common `hostname` / `ip` describe the recording sensor / endpoint, not the parties on the wire.
+  - `results.cloud` -- IAM / API context (`provider`, `account_id`, `tenant_id`, `region`, `principal_*`, `resource_*`, `api_action`, `api_action_status`).
+  - `results.ot` -- ICS asset context (`asset_id`, `asset_type`, `asset_vendor`, `asset_role`, `protocol`, `function_code`, `function_name`, `register_address`, `register_value`).
+  - `results.identity` -- authentication / authorisation context (`user_id`, `user_domain`, `user_principal_name`, `session_id`, `logon_type`, `logon_status`, `auth_method`, `mfa_used`, `src_*`, `target_user*`).
+  - `results.container` -- container / orchestrator context (`container_id`, `container_name`, `container_image`, `container_image_hash`, `namespace`, `pod_name`, `pod_uid`, `node_name`, `cluster_name`, `command`, `args`).
+
+  Buckets that do not apply are omitted; consumers read `results.<bucket>.<field>` (e.g. `results.host.hostname`, `results.net.dst_ip`, `results.cloud.principal_id`) directly.
+- *Catch-all payload (v1.5.0+):* `results.results_payload` is an optional **string** that holds a JSON-serialised copy of the analyst-facing row -- the same data the workflow renders in the notebook table -- so any column that does not map onto the typed buckets (vendor-specific scores, severity, confidence, datasource metadata, sub-technique, ...) is still preserved in the IONIC sink. Store the entire row as a single JSON string; do **not** add new sub-fields here. Consumers that want a typed value should either (a) extend the typed buckets with a schema bump, or (b) parse the JSON payload at read-time. Leave the field unset (or `null`) when the typed buckets already cover everything the analyst sees.
+- *Run scale:* `result_count` reports the total number of result rows the analytic emitted for the run.
+
+> *v1.5.0 dropped a number of formerly-required fields (`analytic_id`, `analytic_path`, `analytic_repo_url`, `analytic_version`, `analytic_engine`, `mitre_attack_domain`, `mitre_subtechnique_*`, `result_score`, `result_score_type`, `result_threshold`, `result_severity`, `behavior_likelihood`, `analytic_confidence`, `site_name`, `datasource_vendor`, `datasource_product`, `log_source_type`) in favour of the catch-all `results.results_payload`. Analytics that still need any of those values should serialise them into the payload string instead of reintroducing the typed columns.*
 
 **Wrapper document.** Each finalised document carries `cim_schema_name`, `cim_schema_version`, run metadata, the `results` list, and a `results_hash` (auto-computed by `Document.finalise()` from the canonicalised `results` array, mirroring how `findings_hash` works on `analytic_schema.json`).
 
@@ -167,34 +177,35 @@ row = {
     "observation_start_utc": "2026-05-11T13:00:00Z",
     "observation_end_utc":   "2026-05-11T14:00:00Z",
     "run_username": "zachary.szewczyk",
-    "analytic_id": "scheduled_task_creation",
     "analytic_name": "Suspicious Scheduled Task Creation",
     "analytic_description": "Identifies suspicious scheduled task creation with anomalous command content.",
-    "analytic_version": "1.0.0",
-    "mitre_attack_domain": "enterprise",
     "mitre_tactic_id": "TA0002",
     "mitre_tactic_name": "Execution",
     "mitre_technique_id": "T1053.005",
     "mitre_technique_name": "Scheduled Task/Job: Scheduled Task",
-    "mitre_mapping_confidence": "high",
-    "result_severity": "high",
-    "behavior_likelihood": "likely",
-    "analytic_confidence": "moderate",
-    "result_status": "new",
-    "validation_state": "candidate",
     "environment_domain": "host",
     "primary_entity_type": "host",
-    "primary_entity_hostname": "WS-1042",
-    "primary_entity_user": "CORP\\jsmith",
-    "src_process_name": "schtasks.exe",
-    "result_score": 0.91,
-    "result_score_type": "rule_score",
-    "evidence_summary": "Scheduled task created by non-admin user with encoded PowerShell payload.",
+    "results": {
+        "host": {
+            "_timestamp": "2026-05-11T13:42:18Z",
+            "hostname": "WS-1042",
+            "user": "CORP\\jsmith",
+            "process_name": "schtasks.exe",
+            "process_path": "C:\\Windows\\System32\\schtasks.exe",
+            "process_command_line": "schtasks /create /tn ... /tr powershell -enc ...",
+        },
+        # Optional v1.5.0 catch-all -- mirrors the row shown to the
+        # analyst so any extra column (score, severity, confidence,
+        # vendor-specific fields) survives the round-trip into the
+        # IONIC sink without inflating the typed schema.
+        "results_payload": '{"hostname":"WS-1042","user":"CORP\\\\jsmith","score":0.91,"reason":"encoded payload","severity":"high"}',
+    },
+    "result_count": 1,
 }
 
 doc = C.create_document(
     cim_schema_name="analytic_results_cim",
-    cim_schema_version="1.0.0",
+    cim_schema_version="1.5.0",
     input_schema_version=C.version,
     output_schema_version=C.version,
     inputs=inputs,

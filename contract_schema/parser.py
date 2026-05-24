@@ -12,7 +12,7 @@ Public API
     Construct an `argparse` instance with flags derived from *schema*.
 
 `parse_input(source=None, *, schema) -> dict`
-    Convert user-supplied *source* (CLI string / Path / JSON literal / Mapping)
+    Convert user-supplied *source* (CLI string / Path / JSON/YAML literal / Mapping)
     into a plain `dict` following the *schema* field names.
 
 Both functions are schema-agnostic; callers must pass in the schema mapping -
@@ -28,6 +28,9 @@ import shlex
 import sys
 from pathlib import Path
 from typing import Any, Mapping, Sequence
+import copy
+
+import yaml
 
 # --------------------------------------------------------------------------- #
 # Parser builder                                                              #
@@ -64,7 +67,7 @@ def build_arg_parser(schema: Mapping[str, Any]) -> argparse.ArgumentParser:
     p.add_argument(
         "--config",
         metavar="FILE",
-        help="JSON file containing full input object; overrides all other flags.",
+        help="JSON or YAML file containing full input object; overrides all other flags.",
     )
 
     for name, spec in schema.get("fields", {}).items():
@@ -111,8 +114,8 @@ def parse_input(
     source
         Supported variants:
         * ``Mapping`` - copied directly.
-        * ``Path`` - JSON file on disk.
-        * ``str``  - interpreted as: existing file path to load; else JSON literal to load; else CLI string.
+        * ``Path`` - JSON or YAML file on disk.
+        * ``str``  - interpreted as: existing file path to load; else JSON/YAML literal to load; else CLI string.
         * ``Sequence[str]`` - treated as CLI tokens.
         * ``None`` - default to ``sys.argv[1:]``.
     schema
@@ -129,19 +132,25 @@ def parse_input(
     if isinstance(source, Mapping):
         return dict(source)
 
-    # Path - read JSON file -------------------------------------------------
+    # Path - read JSON/YAML file -------------------------------------------
     if isinstance(source, Path):
-        return json.loads(source.read_text(encoding="utf-8"))
+        return _load_structured_text(source.read_text(encoding="utf-8"), source=source)
 
     # Decide how to treat *source* -----------------------------------------
     argv: list[str]
     if isinstance(source, str):
         p = Path(source)
         if p.is_file():
-            return json.loads(p.read_text(encoding="utf-8"))
+            return _load_structured_text(p.read_text(encoding="utf-8"), source=p)
         try:
             return json.loads(source)
         except json.JSONDecodeError:
+            try:
+                yaml_obj = yaml.safe_load(source)
+                if isinstance(yaml_obj, Mapping):
+                    return copy.deepcopy(dict(yaml_obj))
+            except yaml.YAMLError:
+                pass
             argv = shlex.split(source)
     elif source is None:
         argv = sys.argv[1:]
@@ -162,6 +171,23 @@ def parse_input(
         cfg_path = Path(config_file)
         if not cfg_path.is_file():
             raise FileNotFoundError(cfg_path)
-        return json.loads(cfg_path.read_text(encoding="utf-8"))
+        return _load_structured_text(cfg_path.read_text(encoding="utf-8"), source=cfg_path)
 
     return ns_dict
+
+
+def _load_structured_text(text: str, *, source: Path) -> dict[str, Any]:
+    """Load a dict from JSON, falling back to YAML."""
+    try:
+        obj = json.loads(text)
+    except json.JSONDecodeError:
+        try:
+            obj = yaml.safe_load(text)
+        except yaml.YAMLError as exc:
+            raise ValueError(f"Invalid JSON or YAML in {source}: {exc}") from exc
+
+    if obj is None:
+        return {}
+    if not isinstance(obj, Mapping):
+        raise ValueError(f"Expected top-level object in {source}, got {type(obj).__name__}")
+    return copy.deepcopy(dict(obj))

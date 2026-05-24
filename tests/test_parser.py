@@ -3,6 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import yaml
+
 from contract_schema import loader, parser
 
 
@@ -33,8 +35,24 @@ class ParserTests(unittest.TestCase):
         finally:
             p.unlink(missing_ok=True)
 
+    def test_parse_yaml_path(self):
+        with tempfile.NamedTemporaryFile("w+", suffix=".yaml", delete=False) as tmp:
+            yaml.safe_dump(self.base, tmp)
+            tmp.flush()
+            p = Path(tmp.name)
+        try:
+            out = parser.parse_input(p, schema=self.schema)
+            self.assertEqual(out, self.base)
+        finally:
+            p.unlink(missing_ok=True)
+
     def test_parse_json_literal(self):
         literal = json.dumps(self.base)
+        out = parser.parse_input(literal, schema=self.schema)
+        self.assertEqual(out, self.base)
+
+    def test_parse_yaml_literal(self):
+        literal = yaml.safe_dump(self.base)
         out = parser.parse_input(literal, schema=self.schema)
         self.assertEqual(out, self.base)
 
@@ -112,7 +130,20 @@ class ParserConfigTests(unittest.TestCase):
             cfg = Path(tmp.name)
         try:
             cli = ["--config", str(cfg)]
-            with self.assertRaises(json.JSONDecodeError):
+            with self.assertRaises(ValueError):
                 parser.parse_input(cli, schema=self.schema)
+        finally:
+            cfg.unlink(missing_ok=True)
+
+    def test_config_yaml_file_supported(self):
+        with tempfile.NamedTemporaryFile("w+", suffix=".yml", delete=False) as tmp:
+            yaml.safe_dump(self.base, tmp)
+            tmp.flush()
+            cfg = Path(tmp.name)
+
+        try:
+            cli = ["--config", str(cfg)]
+            out = parser.parse_input(cli, schema=self.schema)
+            self.assertEqual(out, self.base)
         finally:
             cfg.unlink(missing_ok=True)
