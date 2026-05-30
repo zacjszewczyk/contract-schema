@@ -1,0 +1,237 @@
+{
+    "title": "Analytic Config Contract",
+    "description": "Schema for cpb/<TechniqueID>/config.yml -- the single analyst control surface for a CPB technique analytic. Defines required general metadata, optional display/precision/llm/cim_emission knobs, technique-specific watchlists and data_sources, and per-workflow execution gates with cim_defaults, atlas_validation, ml_uplift, implementation_validation, and an open detail map for per-workflow thresholds.",
+    "version": "1.0.0",
+    "input": {
+        "title": "Analytic Config Input",
+        "type": "object",
+        "description": "The YAML object loaded from cpb/<TechniqueID>/config.yml.",
+        "fields": {
+            "general": {
+                "type": ["object"],
+                "required": true,
+                "description": "Identity and runtime defaults for the analytic.",
+                "fields": {
+                    "technique_id": {
+                        "type": ["string"],
+                        "required": true,
+                        "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$",
+                        "description": "MITRE ATT&CK technique or sub-technique identifier (e.g. T1055, T1003.001)."
+                    },
+                    "technique_name": {
+                        "type": ["string"],
+                        "required": true,
+                        "description": "Human-readable technique name from MITRE ATT&CK."
+                    },
+                    "analytic_id": {"type": ["string"], "required": false},
+                    "analytic_version": {"type": ["string"], "required": false},
+                    "analytic_description": {"type": ["string"], "required": false},
+                    "classification": {"type": ["string"], "required": false},
+                    "lookback_days": {"type": ["integer"], "required": false},
+                    "log_level": {
+                        "type": ["string"],
+                        "required": false,
+                        "enum": ["DEBUG", "INFO", "WARNING", "WARN", "ERROR", "FATAL"]
+                    },
+                    "notebook_display_max_rows": {"type": ["integer", "null"], "required": false},
+                    "watson_json": {"type": ["string"], "required": false},
+                    "deep_research_brief": {"type": ["string"], "required": false}
+                },
+                "additionalProperties": true
+            },
+            "display": {
+                "type": ["object"],
+                "required": false,
+                "description": "Notebook rendering controls. Default true so notebook execution renders Plotly figures and DataFrame tables as usual; set to false for headless / CLI execution.",
+                "fields": {
+                    "use_full_view": {"type": ["boolean"], "required": false},
+                    "plotly_theme": {"type": ["string"], "required": false},
+                    "max_rows": {"type": ["integer", "null"], "required": false},
+                    "visualizations_enabled": {"type": ["boolean"], "required": false},
+                    "tables_enabled": {"type": ["boolean"], "required": false}
+                },
+                "additionalProperties": true
+            },
+            "precision": {
+                "type": ["object"],
+                "required": false,
+                "description": "Precision/recall posture for the analytic.",
+                "fields": {
+                    "mode": {
+                        "type": ["string"],
+                        "required": false,
+                        "enum": ["high_precision", "balanced", "high_recall"]
+                    },
+                    "note": {"type": ["string"], "required": false},
+                    "max_rows": {"type": ["integer", "null"], "required": false}
+                },
+                "additionalProperties": true
+            },
+            "llm": {
+                "type": ["object"],
+                "required": false,
+                "description": "LLM integration controls. enabled is the global on/off; the enable_* toggles select which optional LLM-assisted helpers the notebook may invoke.",
+                "fields": {
+                    "enabled": {"type": ["boolean"], "required": false},
+                    "enable_checkpoint_summary": {"type": ["boolean"], "required": false},
+                    "enable_deep_dive": {"type": ["boolean"], "required": false},
+                    "enable_targeted_host_investigation": {"type": ["boolean"], "required": false},
+                    "deep_dive_host_count": {"type": ["integer"], "required": false},
+                    "max_rows": {"type": ["integer", "null"], "required": false},
+                    "system_prompt": {"type": ["string"], "required": false}
+                },
+                "additionalProperties": true
+            },
+            "cim_emission": {
+                "type": ["object"],
+                "required": false,
+                "description": "Analytic Results CIM emission controls. Wraps every workflow's analyst-facing output with an additional emission of Analytic Results CIM rows.",
+                "fields": {
+                    "enabled": {"type": ["boolean"], "required": false},
+                    "local_path": {"type": ["string"], "required": false},
+                    "bdp": {
+                        "type": ["object", "null"],
+                        "required": false,
+                        "fields": {
+                            "catalog": {"type": ["string"], "required": false},
+                            "table": {"type": ["string"], "required": false},
+                            "write_mode": {"type": ["string"], "required": false, "enum": ["append", "overwrite"]},
+                            "sql_file": {"type": ["string"], "required": false},
+                            "max_query_chars": {"type": ["integer", "null"], "required": false},
+                            "overhead_chars": {"type": ["integer", "null"], "required": false},
+                            "inflation": {"type": ["number", "null"], "required": false},
+                            "max_rows": {"type": ["integer", "null"], "required": false}
+                        },
+                        "additionalProperties": true
+                    }
+                },
+                "additionalProperties": true
+            },
+            "watchlists": {
+                "type": ["object"],
+                "required": false,
+                "description": "Technique-specific allowlists / inventories. Each key names a watchlist; each value is a list of string entries (case-insensitive matches against the relevant field).",
+                "additionalProperties": true
+            },
+            "data_sources": {
+                "type": ["object"],
+                "required": false,
+                "description": "Per-category source-table inventories (e.g. sysmon_tables, xdr_*_tables, zeek_*). Each value is a list of fully-qualified Trino table names. Open keys so techniques can declare additional categories without a schema bump.",
+                "additionalProperties": true
+            },
+            "scoring": {
+                "type": ["object"],
+                "required": false,
+                "description": "Scoring thresholds and weights. high/medium are the canonical decision boundaries; techniques may add additional named coefficients.",
+                "fields": {
+                    "high": {"type": ["number", "integer"], "required": false},
+                    "medium": {"type": ["number", "integer"], "required": false}
+                },
+                "additionalProperties": true
+            },
+            "ml": {
+                "type": ["object"],
+                "required": false,
+                "description": "Optional ML uplift configuration at the analytic level (not per-workflow). Per-workflow ML config lives under workflows.<slug>.ml_uplift.",
+                "additionalProperties": true
+            },
+            "workflows": {
+                "type": ["object"],
+                "required": true,
+                "description": "Per-workflow execution controls. Each key is a workflow slug (wf1, wf2, ...) and each value is a workflow_spec. A workflow runs only when its enabled flag is true.",
+                "propertyNamesPattern": "^[a-z0-9_]+$",
+                "additionalProperties": {
+                    "type": ["object"],
+                    "fields": {
+                        "enabled": {
+                            "type": ["boolean"],
+                            "required": true,
+                            "description": "Master gate for this workflow."
+                        },
+                        "sql_file": {"type": ["string"], "required": false},
+                        "note": {"type": ["string"], "required": false},
+                        "label": {"type": ["string"], "required": false},
+                        "cim_defaults": {
+                            "type": ["object"],
+                            "required": false,
+                            "additionalProperties": true
+                        },
+                        "atlas_validation": {
+                            "type": ["object"],
+                            "required": false,
+                            "fields": {
+                                "status": {
+                                    "type": ["string"],
+                                    "required": false,
+                                    "enum": ["pending", "in_progress", "validated", "deferred", "not_applicable"]
+                                },
+                                "atlas_run": {"type": ["string"], "required": false},
+                                "tables": {"type": ["array"], "required": false, "subtype": "string"},
+                                "fields": {"type": ["array"], "required": false, "subtype": "string"},
+                                "note": {"type": ["string"], "required": false}
+                            },
+                            "additionalProperties": true
+                        },
+                        "ml_uplift": {
+                            "type": ["object"],
+                            "required": false,
+                            "fields": {
+                                "enabled": {"type": ["boolean"], "required": false},
+                                "toolkit": {"type": ["string"], "required": false},
+                                "source_toolkit_prompt": {"type": ["string"], "required": false},
+                                "subtree_path": {"type": ["string"], "required": false},
+                                "verification": {"type": ["string"], "required": false},
+                                "minimum_training_rows": {"type": ["integer"], "required": false},
+                                "note": {"type": ["string"], "required": false}
+                            },
+                            "additionalProperties": true
+                        },
+                        "implementation_validation": {
+                            "type": ["object"],
+                            "required": false,
+                            "fields": {
+                                "symbolic_logic": {
+                                    "type": ["string"],
+                                    "required": false,
+                                    "enum": ["pending", "in_progress", "implemented", "partial", "integrated_pending_artifact", "deferred", "not_applicable", "blocked"]
+                                },
+                                "statistical_methods": {
+                                    "type": ["string"],
+                                    "required": false,
+                                    "enum": ["pending", "in_progress", "implemented", "partial", "integrated_pending_artifact", "deferred", "not_applicable", "blocked"]
+                                },
+                                "machine_learning": {
+                                    "type": ["string"],
+                                    "required": false,
+                                    "enum": ["pending", "in_progress", "implemented", "partial", "integrated_pending_artifact", "deferred", "not_applicable", "blocked"]
+                                },
+                                "note": {"type": ["string"], "required": false}
+                            },
+                            "additionalProperties": true
+                        },
+                        "detail": {
+                            "type": ["object"],
+                            "required": false,
+                            "description": "Open per-workflow knobs (thresholds, watchlist refs, regex patterns, etc.) that the workflow module consumes. Replaces the legacy top-level peN_/deN_ sibling blocks.",
+                            "additionalProperties": true
+                        }
+                    },
+                    "additionalProperties": true
+                }
+            },
+            "analytic_run_id": {
+                "type": ["string", "null"],
+                "required": false,
+                "description": "Optional override for the run identifier surfaced in CIM rows and the local results sink filename. When empty/null, cim_emitter.start_run() generates a UUID + timestamp."
+            }
+        },
+        "additionalProperties": true
+    },
+    "output": {
+        "title": "Analytic Config Output",
+        "type": "object",
+        "description": "Analytic configs are input-only -- this contract does not emit output documents. The output block is required by contract_meta_schema.json but carries no validated fields.",
+        "fields": {},
+        "additionalProperties": true
+    }
+}
