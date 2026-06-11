@@ -1,7 +1,7 @@
 {
     "title": "Analytic Results CIM",
     "description": "Common Information Model for analytic results in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one analytic run, observation window, and primary entity.",
-    "version": "1.6.0",
+    "version": "1.9.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
@@ -283,6 +283,36 @@
                             "enum": ["user", "host", "process", "ip", "domain", "cloud_principal", "cloud_resource", "ot_asset", "container"],
                             "description": "Main subject of the result. Indicates which sub-object under the row's `results` field is the primary subject; the other typed buckets (when present) describe supporting context."
                         },
+                        "result_score": {
+                            "type": ["number", "null"],
+                            "required": false,
+                            "description": "The analytic's numeric verdict for this finding (higher = more suspicious). Promoted to a top-level column so analysts can sort/threshold findings directly. Source column varies by analytic (score, composite_score, symbolic_score, statistical_score, risk_score, ml_score, z_score)."
+                        },
+                        "result_score_type": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "How to interpret result_score (e.g. composite, symbolic, statistical, rule_score, z_score, ml). Lets consumers compare scores only within a compatible type."
+                        },
+                        "result_severity": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Analyst-facing severity bucket for this finding (e.g. critical, high, medium, low, info)."
+                        },
+                        "behavior_likelihood": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Qualitative likelihood that the observed behavior is malicious (e.g. likely, possible, unlikely)."
+                        },
+                        "analytic_confidence": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Confidence the analytic assigns to this finding (e.g. High, Medium, Low / high, moderate, low). Promoted to a top-level column for fast triage filtering."
+                        },
+                        "result_reason": {
+                            "type": ["string", "null"],
+                            "required": false,
+                            "description": "Short human-readable justification for why this row was flagged (the analyst-facing 'reason'/'explanation' string). Gives a one-glance rationale without opening the full payload."
+                        },
                         "results": {
                             "type": ["object"],
                             "required": true,
@@ -430,6 +460,18 @@
                                     },
                                     "additionalProperties": false
                                 },
+                                "provenance": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Pivot key back to the underlying log that produced this finding. Lets an analyst jump from the result straight to the source event for context. Populate the fields the analytic can resolve; omit (or null) the bucket when the finding is an aggregate that maps to no single log record.",
+                                    "fields": {
+                                        "source_dataset":  {"type": ["string", "null"], "required": false, "description": "Concrete source table/dataset the row was produced from (e.g. events.microsoft_sysmon_p). For multi-source analytics this is the specific branch the row came from, not the union of all inputs (which lives in the row-level input_dataset_names)."},
+                                        "log_record_id":   {"type": ["string", "null"], "required": false, "description": "Unique identifier of the source log record so the analyst can pivot to the exact event (e.g. winlog.record_id, Zeek event.id, network.community_id, winlog.activity_id). String-encoded for portability."},
+                                        "log_event_code":  {"type": ["string", "null"], "required": false, "description": "Event/record type code for the source log (e.g. Sysmon/Windows event code '10', '4688'). Narrows the pivot to the right event family."},
+                                        "event_time":      {"type": ["string", "null"], "required": false, "description": "Timestamp of the source log record (ISO-8601 UTC when present). Combined with source_dataset + log_record_id this deterministically locates the originating event."}
+                                    },
+                                    "additionalProperties": false
+                                },
                                 "results_payload": {
                                     "type": ["string", "null"],
                                     "required": false,
@@ -442,6 +484,45 @@
                             "type": ["integer", "null"],
                             "required": false,
                             "description": "Total number of result rows emitted by the analytic for this run."
+                        },
+                        "investigation_results": {
+                            "type": ["object", "null"],
+                            "required": false,
+                            "description": "Per-finding investigation conclusion and timeline. Written EMPTY at emission (one row per unique finding after run-level dedup) and updated out-of-band -- e.g. SQL UPDATE on oks.analytic_results, or by the net-analyst triage skill -- once an analyst (human or agent) investigates the finding. Carries the LATEST conclusion (disposition / narrative / investigation_date / author) plus investigation_count and a full history array so re-investigations APPEND rather than overwrite. Stored as a Trino MAP(varchar,varchar) on the table, so every sub-field value is a string. All sub-fields default to empty strings so every row carries the field ready for later update.",
+                            "fields": {
+                                "disposition": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "Analyst conclusion for the LATEST investigation. Controlled vocabulary written by the net-analyst triage skill: 'anomalous_true_positive', 'anomalous_corroborated', 'benign_finding', 'undetermined', and 'false_positive' (reserved to mark an analytic mis-fire; usable as a grading signal to tune analytics and reduce false positives over time). Mirrors the final history[] element's disposition. Empty string until investigated."
+                                },
+                                "narrative": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "Free-text justification for the disposition: what was examined, what was found, and the reasoning. Mirrors the final history[] element's narrative. Empty string until investigated."
+                                },
+                                "investigation_date": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "format": "date-time",
+                                    "description": "ISO-8601 UTC timestamp of the MOST RECENT investigation of this finding. Distinct from dtg_utc (analytic run time) and results.provenance.event_time (source event time). Empty string until investigated."
+                                },
+                                "author": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "Who performed the most recent investigation. The automated triage skill writes 'net-analyst-agent'; a human investigating out-of-band (e.g. SQL UPDATE) sets their own name or identifier. Empty string until investigated."
+                                },
+                                "investigation_count": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "Number of investigations performed on this finding, stringified for MAP(varchar,varchar) storage ('1' after the first investigation; increments on each re-investigation). Empty string until investigated."
+                                },
+                                "history": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "JSON-serialised array of every investigation performed on this finding, oldest first. Each element: {\"n\": <int>, \"at\": <ISO-8601 UTC>, \"author\": <string>, \"disposition\": <string>, \"narrative\": <string>}. The final element's values mirror the scalar disposition / narrative / investigation_date / author fields. Re-investigation APPENDS a new element rather than overwriting, preserving the full timeline (e.g. an initial 'undetermined' for thin data, later revised when new data arrives). Stored as a single VARCHAR/JSON string. Empty string (or '[]') until investigated."
+                                }
+                            },
+                            "additionalProperties": false
                         }
                     },
                     "additionalProperties": false
