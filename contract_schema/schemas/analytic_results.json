@@ -34,7 +34,8 @@
                     "type": ["object"],
                     "fields": {
                         "result_id": {"type": ["string"], "required": true, "description": "Globally unique ID for this finding. Deterministic hash of run ID, analytic, entity, time window, and technique. PRIMARY KEY."},
-                        "run_id": {"type": ["string"], "required": true, "description": "Run that produced this finding. FOREIGN KEY -> analytic_runs.run_id. This is the ONLY run-scoped value on a result row; every other run/execution field lives in analytic_runs."},
+                        "run_id": {"type": ["string"], "required": true, "description": "Run that produced this finding. FOREIGN KEY -> analytic_runs.run_id. Every other run/execution field lives in analytic_runs."},
+                        "analytic_id": {"type": ["string"], "required": true, "description": "Canonical namespaced analytic id (e.g. armory.oks.t1112). JOIN KEY -> analytic_runs.analytic_id and analytic_metadata.analytic_id, so findings join directly to the run ledger and the improvement ledger."},
 
                         "mitre_attack_domain": {"type": ["string", "null"], "required": false, "description": "ATT&CK matrix domain (enterprise, mobile, ics)."},
                         "mitre_tactic_id": {"type": ["string"], "required": true, "pattern": "^TA[0-9]{4}$", "description": "ATT&CK tactic ID (e.g., TA0005)."},

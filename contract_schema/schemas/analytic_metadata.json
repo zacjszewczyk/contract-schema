@@ -1,0 +1,59 @@
+{
+    "title": "Analytic Metadata CIM",
+    "description": "Append-only ledger of iterative changes made to an analytic by Adler. One row per improvement (PK metadata_id), inserted deployment-side when a run carries an Adler improvement not yet recorded. analytic_id joins to analytic_runs.analytic_id and analytic_results.analytic_id. 'Latest' state is a MAX(improvement_seq)/MAX(improvement_dtg) query; per-run execution history lives in analytic_runs.",
+    "version": "1.0.0",
+    "input": {
+        "title": "Analytic Metadata CIM Input Schema",
+        "type": "object",
+        "description": "Standard analytic input contract (shared with analytic_runs/analytic_results); included so the document validates standalone.",
+        "fields": {
+            "start_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Inclusive UTC start of the data window."},
+            "end_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Exclusive UTC end of the data window."},
+            "data_source_type": {"type": ["string"], "required": true, "enum": ["file", "IONIC", "api"], "description": "Transport used to retrieve data."},
+            "data_source": {"type": ["string"], "required": true, "description": "Path/identifier/URL of the dataset."},
+            "log_path": {"type": ["string"], "required": false, "default": "stdout", "description": "Execution log path/stream."},
+            "output": {"type": ["string"], "required": false, "default": "stdout", "description": "CIM document destination."},
+            "analytic_parameters": {"type": ["object", "string"], "required": false, "default": {}, "description": "Analytic-specific tuning knobs."},
+            "verbosity": {"type": ["string"], "required": false, "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"], "default": "INFO", "description": "Lowest log level emitted."}
+        },
+        "additionalProperties": true
+    },
+    "output": {
+        "title": "Analytic Metadata CIM Output Schema",
+        "type": "object",
+        "description": "One Adler improvement event. Append grain: one row per (analytic_id, improvement_seq).",
+        "fields": {
+            "cim_schema_name": {"type": ["string"], "required": true, "enum": ["analytic_metadata_cim"], "description": "Stable CIM identifier."},
+            "cim_schema_version": {"type": ["string"], "required": true, "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Semantic version of this schema."},
+
+            "metadata_id": {"type": ["string"], "required": true, "description": "PRIMARY KEY. Deterministic hash of analytic_id + improvement_seq, so re-recording the same improvement is a no-op (idempotent append)."},
+            "analytic_id": {"type": ["string"], "required": true, "description": "Canonical namespaced analytic id (e.g. armory.oks.t1112) from .scaffold/analytic_registry.yml. JOIN KEY -> analytic_runs.analytic_id and analytic_results.analytic_id."},
+            "analytic_name": {"type": ["string"], "required": true, "description": "Human-readable analytic name."},
+            "analytic_version": {"type": ["string", "null"], "required": false, "description": "Analytic version produced by this improvement."},
+            "mitre_technique_id": {"type": ["string", "null"], "required": false, "description": "ATT&CK technique the analytic targets (context)."},
+            "analytic_url": {"type": ["string", "null"], "required": false, "description": "URL to the analytic source/rendered page."},
+            "analytic_path": {"type": ["string", "null"], "required": false, "description": "Repo-relative path to the analytic notebook."},
+            "analytic_repo_url": {"type": ["string", "null"], "required": false, "description": "Base repository URL."},
+
+            "improvement_seq": {"type": ["integer"], "required": true, "description": "1-based ordinal of this Adler improvement for the analytic (0 = baseline/initial deployment with no Adler change)."},
+            "improvement_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "UTC timestamp of the DEVELOPMENT-side Adler improvement."},
+            "improvement_username": {"type": ["string"], "required": true, "description": "User who ran the Adler improvement on the dev side."},
+            "change_summary": {"type": ["string"], "required": true, "description": "Model-authored summary of the change."},
+            "model": {"type": ["string"], "required": true, "description": "Model Adler used for this improvement (e.g. claude-opus-4-8)."},
+            "improvement_version": {"type": ["string", "null"], "required": false, "description": "Version tag this improvement produced (mirrors analytic_version when set)."},
+            "improvement_commit_hash": {"type": ["string", "null"], "required": false, "description": "Git commit of the improvement."},
+            "adler_version": {"type": ["string", "null"], "required": false, "description": "Version of Adler that made the change."},
+            "change_dimensions": {"type": ["list", "null"], "required": false, "description": "Aspects changed (e.g. ['sql','scoring','thresholds','docs']). ARRAY VARCHAR.", "items": {"type": ["string"]}},
+
+            "execution_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "UTC timestamp of the DEPLOYMENT-side run that recorded this improvement row."},
+            "execution_username": {"type": ["string"], "required": true, "description": "Deployment user/service account for the recording run."},
+            "execution_run_id": {"type": ["string", "null"], "required": false, "description": "run_id of the recording run -> joins to analytic_runs/analytic_results."},
+            "execution_branch": {"type": ["string", "null"], "required": false, "description": "Git branch deployed at the recording run."},
+            "execution_commit_hash": {"type": ["string", "null"], "required": false, "description": "Git commit deployed at the recording run."},
+
+            "emitted_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "UTC timestamp the row was written."},
+            "additional_properties": {"type": ["object", "null"], "required": false, "description": "Arbitrary extension metadata (MAP varchar:varchar).", "additionalProperties": true}
+        },
+        "additionalProperties": false
+    }
+}
