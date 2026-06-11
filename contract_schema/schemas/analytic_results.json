@@ -1,0 +1,276 @@
+{
+    "title": "Analytic Results CIM",
+    "description": "Common Information Model for analytic findings in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one primary entity. Run-scoped execution context lives in analytic_metadata; join on run_id = analytic_metadata.run_id.",
+    "version": "2.0.0",
+    "input": {
+        "title": "Analytic Results CIM Input Schema",
+        "type": "object",
+        "description": "Identical to the analytic_metadata input contract; included so the results document validates standalone.",
+        "fields": {
+            "start_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Inclusive UTC timestamp (ISO 8601) marking the first data element evaluated."},
+            "end_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Exclusive UTC timestamp (ISO 8601) marking the end of the data window."},
+            "data_source_type": {"type": ["string"], "required": true, "enum": ["file", "IONIC", "api"], "description": "Transport mechanism used to retrieve data for the run."},
+            "data_source": {"type": ["string"], "required": true, "description": "Path, identifier, or URL the runner used to fetch the dataset."},
+            "log_path": {"type": ["string"], "required": false, "default": "stdout", "description": "Filesystem path or stream for execution logs."},
+            "output": {"type": ["string"], "required": false, "default": "stdout", "description": "Destination for the CIM results document."},
+            "analytic_parameters": {"type": ["object", "string"], "required": false, "default": {}, "description": "Analytic-specific tuning knobs."},
+            "verbosity": {"type": ["string"], "required": false, "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"], "default": "INFO", "description": "Lowest log-severity level emitted."}
+        },
+        "additionalProperties": true
+    },
+    "output": {
+        "title": "Analytic Results CIM Output Schema",
+        "type": "object",
+        "description": "Carrier for the canonical CIM finding rows. Row grain: run_id + result_id (one finding per primary_entity + tactic_id + technique_id within the run's observation window). All run/execution metadata lives in analytic_metadata, joined on run_id.",
+        "fields": {
+            "cim_schema_name": {"type": ["string"], "required": true, "enum": ["analytic_results_cim"], "description": "Stable identifier for this CIM."},
+            "cim_schema_version": {"type": ["string"], "required": true, "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Semantic version of the CIM row schema."},
+            "run_id": {"type": ["string"], "required": true, "description": "Run that produced these rows. Mirrored onto every row's run_id; JOIN KEY -> analytic_metadata.run_id."},
+            "results": {
+                "type": ["list"],
+                "required": true,
+                "description": "Ordered list of CIM finding rows emitted by this run.",
+                "items": {
+                    "type": ["object"],
+                    "fields": {
+                        "result_id": {"type": ["string"], "required": true, "description": "Globally unique ID for this finding. Deterministic hash of run ID, analytic, entity, time window, and technique. PRIMARY KEY."},
+                        "run_id": {"type": ["string"], "required": true, "description": "Run that produced this finding. FOREIGN KEY -> analytic_metadata.run_id. This is the ONLY run-scoped value on a result row; every other run/execution field lives in analytic_metadata."},
+
+                        "mitre_attack_domain": {"type": ["string", "null"], "required": false, "description": "ATT&CK matrix domain (enterprise, mobile, ics)."},
+                        "mitre_tactic_id": {"type": ["string"], "required": true, "pattern": "^TA[0-9]{4}$", "description": "ATT&CK tactic ID (e.g., TA0005)."},
+                        "mitre_tactic_name": {"type": ["string"], "required": true, "description": "ATT&CK tactic name."},
+                        "mitre_technique_id": {"type": ["string"], "required": true, "pattern": "^T[0-9]{4}(\\.[0-9]{3})?$", "description": "ATT&CK technique or sub-technique ID. Store the most specific form (e.g., T1053.005)."},
+                        "mitre_technique_name": {"type": ["string"], "required": true, "description": "ATT&CK technique or sub-technique name."},
+                        "mitre_subtechnique_id": {"type": ["string", "null"], "required": false, "pattern": "^T[0-9]{4}\\.[0-9]{3}$", "description": "Explicit sub-technique ID when the finding maps to one."},
+                        "mitre_subtechnique_name": {"type": ["string", "null"], "required": false, "description": "Explicit sub-technique name."},
+
+                        "environment_domain": {"type": ["string"], "required": true, "enum": ["host", "network", "cloud", "identity", "ot", "container", "hybrid"], "description": "Primary environment type. Selects which bucket under `results` is primary."},
+                        "primary_entity_type": {"type": ["string"], "required": true, "enum": ["user", "host", "process", "ip", "domain", "cloud_principal", "cloud_resource", "ot_asset", "container"], "description": "Main subject of the finding."},
+
+                        "first_seen_utc": {"type": ["string", "null"], "required": false, "format": "date-time", "description": "Earliest source-event timestamp aggregated into this finding (ISO-8601 UTC). For single-event findings equals results.provenance.event_time."},
+                        "last_seen_utc": {"type": ["string", "null"], "required": false, "format": "date-time", "description": "Latest source-event timestamp aggregated into this finding (ISO-8601 UTC)."},
+
+                        "result_score": {"type": ["number", "null"], "required": false, "description": "Numeric verdict for this finding (higher = more suspicious). Promoted for sort/threshold."},
+                        "result_score_type": {"type": ["string", "null"], "required": false, "description": "How to interpret result_score (composite, symbolic, statistical, rule_score, z_score, ml)."},
+                        "result_threshold": {"type": ["number", "null"], "required": false, "description": "Score/decision threshold in effect when this finding fired, so analysts see the margin."},
+                        "result_severity": {"type": ["string", "null"], "required": false, "description": "Analyst-facing severity bucket (critical, high, medium, low, info)."},
+                        "behavior_likelihood": {"type": ["string", "null"], "required": false, "description": "Qualitative likelihood the behavior is malicious (likely, possible, unlikely)."},
+                        "analytic_confidence": {"type": ["string", "null"], "required": false, "description": "Confidence the analytic assigns to this finding (high, medium, low)."},
+                        "result_reason": {"type": ["string", "null"], "required": false, "description": "Short human-readable justification for why this row was flagged."},
+
+                        "detection_logic": {
+                            "type": ["object", "null"],
+                            "required": false,
+                            "description": "How this finding was detected -- the investigation aid. Captures the rule/method that fired, the human-readable condition, the source query, the specific conditions matched on THIS row, the thresholds and score components in effect, and baseline state. Lets an analyst reconstruct and re-run the logic without opening the notebook.",
+                            "fields": {
+                                "method": {"type": ["string", "null"], "required": false, "enum": ["symbolic_logic", "statistical", "machine_learning", "threat_intel", "signature", "graph", "composite", null], "description": "Detection method family that produced the finding."},
+                                "workflow_key": {"type": ["string", "null"], "required": false, "description": "Workflow that produced the finding (e.g. reg_exe_defense_impairment_command_detection)."},
+                                "rule_name": {"type": ["string", "null"], "required": false, "description": "Human-readable rule/detection label (e.g. high_diversity_spray, squiblydoo)."},
+                                "summary": {"type": ["string", "null"], "required": false, "description": "One-line detection summary as shown to the analyst."},
+                                "logic": {"type": ["string", "null"], "required": false, "description": "Plain-language statement of the condition that fired, e.g. 'distinct_user_count > 20 within a 5-minute window from one src_ip'."},
+                                "query": {"type": ["string", "null"], "required": false, "description": "The detection query text (SQL) that produced the candidate rows, when small enough to embed; otherwise null and use query_ref."},
+                                "query_ref": {"type": ["string", "null"], "required": false, "description": "Repo-relative path to the detection source (e.g. oks/T1112/Workflow/Externals/<name>.sql or the workflow module)."},
+                                "matched_conditions": {"type": ["list", "null"], "required": false, "description": "Specific conditions/rule-flags that evaluated true for this row (e.g. ['is_squiblydoo', 'has_download_exec_primitive']).", "items": {"type": ["string"]}},
+                                "thresholds": {"type": ["object", "null"], "required": false, "description": "Thresholds in effect for this finding as name -> value (MAP VARCHAR,VARCHAR), e.g. {'distinct_user_min':'20','window_minutes':'5'}.", "additionalProperties": true},
+                                "score_breakdown": {"type": ["object", "null"], "required": false, "description": "Component scores that composed result_score as name -> value (MAP VARCHAR,DOUBLE), e.g. {'symbolic':70,'statistical':20}.", "additionalProperties": true},
+                                "baseline": {
+                                    "type": ["object", "null"], "required": false, "description": "Baseline/horizon state for statistical methods.",
+                                    "fields": {
+                                        "window_days": {"type": ["integer", "null"], "required": false, "description": "Baseline window used (days)."},
+                                        "is_fallback": {"type": ["boolean", "null"], "required": false, "description": "True when a within-lookback approximation was used instead of the full requested horizon."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "references": {"type": ["list", "null"], "required": false, "description": "ATT&CK detection-strategy / source-action / external references backing the rule.", "items": {"type": ["string"]}}
+                            },
+                            "additionalProperties": false
+                        },
+
+                        "results": {
+                            "type": ["object"],
+                            "required": true,
+                            "description": "Typed observation buckets for this finding plus standardized evidence maps. Every domain bucket shares the common header (`_timestamp`, `hostname`, `ip`, `user`). Populate the bucket(s) matching the analytic's domain plus any cross-domain context, the `provenance` pivot, and the `metrics`/`attributes` maps for analyst-facing evidence. Buckets that do not apply MUST be omitted (or null). `metrics`/`attributes` replace the freeform results_payload blob.",
+                            "fields": {
+                                "host": {
+                                    "type": ["object", "null"], "required": false, "description": "Host-domain observation: common header plus process detail.",
+                                    "fields": {
+                                        "_timestamp": {"type": ["string", "null"], "required": false, "description": "Event timestamp (ISO-8601 UTC)."},
+                                        "hostname": {"type": ["string", "null"], "required": false, "description": "Hostname or FQDN of the affected host."},
+                                        "ip": {"type": ["string", "null"], "required": false, "description": "IP of the affected host."},
+                                        "user": {"type": ["string", "null"], "required": false, "description": "User account associated with the finding."},
+                                        "process_name": {"type": ["string", "null"], "required": false, "description": "Process basename (e.g. 'schtasks.exe')."},
+                                        "process_path": {"type": ["string", "null"], "required": false, "description": "Full image path of the observed process."},
+                                        "process_hash": {"type": ["string", "null"], "required": false, "description": "File hash of the observed process, preferably SHA-256."},
+                                        "process_id": {"type": ["integer", "null"], "required": false, "description": "OS process identifier."},
+                                        "process_guid": {"type": ["string", "null"], "required": false, "description": "Stable process identifier (e.g. Sysmon ProcessGuid)."},
+                                        "process_command_line": {"type": ["string", "null"], "required": false, "description": "Command line used to invoke the observed process."},
+                                        "parent_process_name": {"type": ["string", "null"], "required": false, "description": "Parent process basename."},
+                                        "parent_process_path": {"type": ["string", "null"], "required": false, "description": "Parent process image path."},
+                                        "parent_process_id": {"type": ["integer", "null"], "required": false, "description": "Parent process identifier."},
+                                        "target_process_name": {"type": ["string", "null"], "required": false, "description": "Target process basename for cross-process analytics (e.g. lsass.exe)."},
+                                        "target_process_path": {"type": ["string", "null"], "required": false, "description": "Target process image path."},
+                                        "target_process_id": {"type": ["integer", "null"], "required": false, "description": "Target process identifier."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "net": {
+                                    "type": ["object", "null"], "required": false, "description": "Network-domain observation: common header for the recording sensor plus src/dst addressing, transport, and service.",
+                                    "fields": {
+                                        "_timestamp": {"type": ["string", "null"], "required": false, "description": "Event timestamp (ISO-8601 UTC)."},
+                                        "hostname": {"type": ["string", "null"], "required": false, "description": "Recording host (sensor/endpoint) hostname."},
+                                        "ip": {"type": ["string", "null"], "required": false, "description": "Recording host IP."},
+                                        "user": {"type": ["string", "null"], "required": false, "description": "User on the recording host."},
+                                        "src_ip": {"type": ["string", "null"], "required": false, "description": "Source IP."},
+                                        "src_port": {"type": ["integer", "null"], "required": false, "description": "Source port."},
+                                        "src_hostname": {"type": ["string", "null"], "required": false, "description": "Source hostname."},
+                                        "src_user": {"type": ["string", "null"], "required": false, "description": "Source user/principal."},
+                                        "dst_ip": {"type": ["string", "null"], "required": false, "description": "Destination IP."},
+                                        "dst_port": {"type": ["integer", "null"], "required": false, "description": "Destination port."},
+                                        "dst_hostname": {"type": ["string", "null"], "required": false, "description": "Destination hostname."},
+                                        "dst_domain": {"type": ["string", "null"], "required": false, "description": "Queried or contacted domain."},
+                                        "dst_url": {"type": ["string", "null"], "required": false, "description": "URL, if applicable."},
+                                        "protocol": {"type": ["string", "null"], "required": false, "description": "Network or application protocol."},
+                                        "service_name": {"type": ["string", "null"], "required": false, "description": "Service or application protocol name."},
+                                        "direction": {"type": ["string", "null"], "required": false, "enum": ["inbound", "outbound", "internal", "external", null], "description": "Connection direction relative to the recording host."},
+                                        "bytes_in": {"type": ["integer", "null"], "required": false, "description": "Bytes received on this flow."},
+                                        "bytes_out": {"type": ["integer", "null"], "required": false, "description": "Bytes sent on this flow."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "cloud": {
+                                    "type": ["object", "null"], "required": false, "description": "Cloud-domain observation: common header plus provider, account/tenant, principal, resource, region, API action.",
+                                    "fields": {
+                                        "_timestamp": {"type": ["string", "null"], "required": false, "description": "Event timestamp (ISO-8601 UTC)."},
+                                        "hostname": {"type": ["string", "null"], "required": false, "description": "Workload hostname (VM/container) the event was attributed to."},
+                                        "ip": {"type": ["string", "null"], "required": false, "description": "Workload IP."},
+                                        "user": {"type": ["string", "null"], "required": false, "description": "Local user on the workload."},
+                                        "provider": {"type": ["string", "null"], "required": false, "description": "Cloud provider (aws, azure, gcp, oci)."},
+                                        "account_id": {"type": ["string", "null"], "required": false, "description": "Account/subscription/project ID."},
+                                        "tenant_id": {"type": ["string", "null"], "required": false, "description": "Cloud or SaaS tenant ID."},
+                                        "region": {"type": ["string", "null"], "required": false, "description": "Cloud region or zone."},
+                                        "principal_id": {"type": ["string", "null"], "required": false, "description": "Cloud principal/user/role ID."},
+                                        "principal_name": {"type": ["string", "null"], "required": false, "description": "Cloud principal name."},
+                                        "principal_type": {"type": ["string", "null"], "required": false, "description": "Cloud principal type (user, role, service-account, federated)."},
+                                        "resource_id": {"type": ["string", "null"], "required": false, "description": "Cloud resource identifier (ARN, resource ID, full resource name)."},
+                                        "resource_name": {"type": ["string", "null"], "required": false, "description": "Human-readable resource name."},
+                                        "resource_type": {"type": ["string", "null"], "required": false, "description": "VM, bucket, key vault, IAM role, etc."},
+                                        "api_action": {"type": ["string", "null"], "required": false, "description": "Cloud API action invoked."},
+                                        "api_action_status": {"type": ["string", "null"], "required": false, "enum": ["success", "failure", "denied", "unknown", null], "description": "Outcome of the API action."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "ot": {
+                                    "type": ["object", "null"], "required": false, "description": "OT observation: common header plus ICS asset, protocol, function code, register detail.",
+                                    "fields": {
+                                        "_timestamp": {"type": ["string", "null"], "required": false, "description": "Event timestamp (ISO-8601 UTC)."},
+                                        "hostname": {"type": ["string", "null"], "required": false, "description": "Recording host hostname."},
+                                        "ip": {"type": ["string", "null"], "required": false, "description": "Recording host IP."},
+                                        "user": {"type": ["string", "null"], "required": false, "description": "User on the recording host."},
+                                        "asset_id": {"type": ["string", "null"], "required": false, "description": "OT asset identifier."},
+                                        "asset_type": {"type": ["string", "null"], "required": false, "description": "PLC, HMI, engineering workstation, historian, RTU, sensor."},
+                                        "asset_vendor": {"type": ["string", "null"], "required": false, "description": "OT asset vendor."},
+                                        "asset_role": {"type": ["string", "null"], "required": false, "description": "Operational role."},
+                                        "protocol": {"type": ["string", "null"], "required": false, "description": "Modbus, DNP3, S7, OPC UA, EtherNet/IP."},
+                                        "function_code": {"type": ["string", "null"], "required": false, "description": "OT/ICS function code or command."},
+                                        "function_name": {"type": ["string", "null"], "required": false, "description": "Human-readable function name."},
+                                        "register_address": {"type": ["string", "null"], "required": false, "description": "Targeted register/coil/tag address."},
+                                        "register_value": {"type": ["string", "null"], "required": false, "description": "Written/read register value (string-encoded)."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "identity": {
+                                    "type": ["object", "null"], "required": false, "description": "Identity-plane observation: common header plus auth/authz context.",
+                                    "fields": {
+                                        "_timestamp": {"type": ["string", "null"], "required": false, "description": "Event timestamp (ISO-8601 UTC)."},
+                                        "hostname": {"type": ["string", "null"], "required": false, "description": "IdP/DC hostname."},
+                                        "ip": {"type": ["string", "null"], "required": false, "description": "IdP/DC IP."},
+                                        "user": {"type": ["string", "null"], "required": false, "description": "Acting user account."},
+                                        "user_id": {"type": ["string", "null"], "required": false, "description": "Stable user identifier (SID, OID, sub)."},
+                                        "user_domain": {"type": ["string", "null"], "required": false, "description": "Acting user's domain/realm/tenant."},
+                                        "user_principal_name": {"type": ["string", "null"], "required": false, "description": "User principal name (UPN/email)."},
+                                        "session_id": {"type": ["string", "null"], "required": false, "description": "Authentication session identifier."},
+                                        "logon_type": {"type": ["string", "null"], "required": false, "description": "Logon mechanism (interactive, network, remote-interactive, oauth, saml)."},
+                                        "logon_status": {"type": ["string", "null"], "required": false, "enum": ["success", "failure", "denied", "unknown", null], "description": "Outcome of the authentication attempt."},
+                                        "auth_method": {"type": ["string", "null"], "required": false, "description": "Authentication method (password, certificate, fido2, oauth_token)."},
+                                        "mfa_used": {"type": ["boolean", "null"], "required": false, "description": "Whether MFA was satisfied."},
+                                        "src_ip": {"type": ["string", "null"], "required": false, "description": "IP of the requesting endpoint."},
+                                        "src_hostname": {"type": ["string", "null"], "required": false, "description": "Hostname of the requesting endpoint."},
+                                        "target_user": {"type": ["string", "null"], "required": false, "description": "Target user (delegation/impersonation/privesc)."},
+                                        "target_user_id": {"type": ["string", "null"], "required": false, "description": "Stable identifier of the target user."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "container": {
+                                    "type": ["object", "null"], "required": false, "description": "Container/orchestrator observation: common header plus container identity, image, namespace, pod, cluster, runtime command.",
+                                    "fields": {
+                                        "_timestamp": {"type": ["string", "null"], "required": false, "description": "Event timestamp (ISO-8601 UTC)."},
+                                        "hostname": {"type": ["string", "null"], "required": false, "description": "Container host/node hostname."},
+                                        "ip": {"type": ["string", "null"], "required": false, "description": "Container host/node IP."},
+                                        "user": {"type": ["string", "null"], "required": false, "description": "User inside the container."},
+                                        "container_id": {"type": ["string", "null"], "required": false, "description": "Container runtime identifier."},
+                                        "container_name": {"type": ["string", "null"], "required": false, "description": "Container name."},
+                                        "container_image": {"type": ["string", "null"], "required": false, "description": "Container image reference (registry/name:tag)."},
+                                        "container_image_hash": {"type": ["string", "null"], "required": false, "description": "Container image digest (sha256:...)."},
+                                        "namespace": {"type": ["string", "null"], "required": false, "description": "Kubernetes namespace."},
+                                        "pod_name": {"type": ["string", "null"], "required": false, "description": "Kubernetes pod name."},
+                                        "pod_uid": {"type": ["string", "null"], "required": false, "description": "Kubernetes pod UID."},
+                                        "node_name": {"type": ["string", "null"], "required": false, "description": "Kubernetes node name."},
+                                        "cluster_name": {"type": ["string", "null"], "required": false, "description": "Cluster name."},
+                                        "command": {"type": ["string", "null"], "required": false, "description": "Entrypoint/command observed inside the container."},
+                                        "args": {"type": ["string", "null"], "required": false, "description": "Container args (string-joined)."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "provenance": {
+                                    "type": ["object", "null"], "required": false, "description": "Pivot key back to the underlying log that produced this finding.",
+                                    "fields": {
+                                        "source_dataset": {"type": ["string", "null"], "required": false, "description": "Concrete source table/dataset for this row (the specific branch for multi-source analytics, not the union)."},
+                                        "log_record_id": {"type": ["string", "null"], "required": false, "description": "Unique identifier of the source log record (winlog.record_id, Zeek event.id, community_id). String-encoded."},
+                                        "log_event_code": {"type": ["string", "null"], "required": false, "description": "Event/record type code (e.g. Sysmon '10', '4688')."},
+                                        "event_time": {"type": ["string", "null"], "required": false, "description": "Timestamp of the source log record (ISO-8601 UTC)."}
+                                    },
+                                    "additionalProperties": false
+                                },
+                                "metrics": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Named QUANTITATIVE evidence for this finding, stored as Trino MAP(VARCHAR, DOUBLE). Replaces dumping numeric columns into results_payload. Keys are analytic-defined, snake_case, unit-suffixed when ambiguous. Examples observed across oks: distinct_dest_ips_per_proc, host_proc_dest_count, domain_entropy, cmdline_length, cmdline_entropy, lifetime_seconds, failure_rate, z_connections, z_distinct_sources, dest_ip_user_prevalence, port_user_prevalence, bytes_out, connections_to_dest.",
+                                    "additionalProperties": true
+                                },
+                                "attributes": {
+                                    "type": ["object", "null"],
+                                    "required": false,
+                                    "description": "Named CATEGORICAL/STRING evidence that does not map onto a typed bucket, stored as Trino MAP(VARCHAR, VARCHAR). Replaces the string columns previously dumped into results_payload. Examples observed across oks: dest_port_category, evidence_kind, conn_state, transport, child_category, path_category, decoded_payload, cmdline_preview, sample_user, operational_sequence.",
+                                    "additionalProperties": true
+                                },
+                                "results_payload": {
+                                    "type": ["string", "null"],
+                                    "required": false,
+                                    "description": "DEPRECATED escape hatch. JSON-serialised overflow of analyst-facing columns that map neither to a typed bucket nor to metrics/attributes. Retained for backward compatibility during migration; prefer metrics/attributes. Stored as a single VARCHAR/JSON string -- do NOT add new sub-fields here."
+                                }
+                            },
+                            "additionalProperties": false
+                        },
+
+                        "investigation_results": {
+                            "type": ["object", "null"],
+                            "required": false,
+                            "description": "Per-finding investigation conclusion and timeline. Written EMPTY at emission and updated out-of-band (SQL UPDATE on oks.analytic_results, or by the net-analyst triage skill). Carries the LATEST conclusion plus investigation_count and a full history array so re-investigations APPEND. Stored as Trino MAP(varchar,varchar); every sub-field value is a string.",
+                            "fields": {
+                                "disposition": {"type": ["string", "null"], "required": false, "description": "Latest conclusion: 'anomalous_true_positive', 'anomalous_corroborated', 'benign_finding', 'undetermined', 'false_positive'. Empty until investigated."},
+                                "narrative": {"type": ["string", "null"], "required": false, "description": "Free-text justification for the disposition. Empty until investigated."},
+                                "investigation_date": {"type": ["string", "null"], "required": false, "format": "date-time", "description": "ISO-8601 UTC timestamp of the most recent investigation. Empty until investigated."},
+                                "author": {"type": ["string", "null"], "required": false, "description": "Who performed the most recent investigation ('net-analyst-agent' or a human). Empty until investigated."},
+                                "investigation_count": {"type": ["string", "null"], "required": false, "description": "Number of investigations, stringified. Empty until investigated."},
+                                "history": {"type": ["string", "null"], "required": false, "description": "JSON-serialised array of every investigation, oldest first: {\"n\",\"at\",\"author\",\"disposition\",\"narrative\"}. Empty (or '[]') until investigated."}
+                            },
+                            "additionalProperties": false
+                        }
+                    },
+                    "additionalProperties": false
+                }
+            }
+        },
+        "additionalProperties": false
+    }
+}

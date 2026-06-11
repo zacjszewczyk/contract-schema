@@ -1,0 +1,120 @@
+{
+    "title": "Analytic Metadata CIM",
+    "description": "Common Information Model for analytic execution metadata in tabular storage. One row represents one analytic run (run_id) and captures how, when, where, and by whom the analytic executed. Joins 1:N to analytic_results on run_id = analytic_results.run_id. All run/execution context lives here; all per-finding data lives in analytic_results.",
+    "version": "2.0.0",
+    "input": {
+        "title": "Analytic Metadata CIM Input Schema",
+        "type": "object",
+        "description": "Parameters describing how a CIM-conformant run was produced. Mirrors the standard analytic_schema inputs so any analytic emitting CIM rows can validate its own runtime configuration.",
+        "fields": {
+            "start_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Inclusive UTC timestamp (ISO 8601) marking the first data element evaluated."},
+            "end_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Exclusive UTC timestamp (ISO 8601) marking the end of the data window."},
+            "data_source_type": {"type": ["string"], "required": true, "enum": ["file", "IONIC", "api"], "description": "Transport mechanism used to retrieve data for the run."},
+            "data_source": {"type": ["string"], "required": true, "description": "Path, identifier, or URL the runner used to fetch the dataset."},
+            "log_path": {"type": ["string"], "required": false, "default": "stdout", "description": "Filesystem path or stream for execution logs. Default 'stdout'."},
+            "output": {"type": ["string"], "required": false, "default": "stdout", "description": "Destination for the CIM results document. Supports 'stdout' or a file path."},
+            "analytic_parameters": {"type": ["object", "string"], "required": false, "default": {}, "description": "Arbitrary JSON object or path to JSON file containing analytic-specific tuning knobs."},
+            "verbosity": {"type": ["string"], "required": false, "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"], "default": "INFO", "description": "Lowest log-severity level that will be emitted (default INFO)."}
+        },
+        "additionalProperties": true
+    },
+    "output": {
+        "title": "Analytic Metadata CIM Output Schema",
+        "type": "object",
+        "description": "One analytic run's execution context, provenance, and audit record. Row grain: one row per run_id.",
+        "fields": {
+            "cim_schema_name": {"type": ["string"], "required": true, "enum": ["analytic_metadata_cim"], "description": "Stable identifier for this CIM. Lets downstream consumers dispatch on schema family."},
+            "cim_schema_version": {"type": ["string"], "required": true, "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Semantic version of this metadata schema."},
+            "input_schema_version": {"type": ["string"], "required": true, "description": "Echo of the input contract version used for this run."},
+            "output_schema_version": {"type": ["string"], "required": true, "description": "Semantic-version identifier for this output contract."},
+
+            "run_id": {"type": ["string"], "required": true, "description": "Globally unique identifier (UUID v4 / run_<ts>_<short>) assigned at run start. PRIMARY KEY. Equals analytic_results.run_id on every finding produced by this run."},
+
+            "initialization_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "UTC timestamp (ISO-8601) when the run was instantiated (first cell / start_run)."},
+            "finalization_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "UTC timestamp (ISO-8601) when finalise() completed."},
+            "total_runtime_seconds": {"type": ["integer"], "required": true, "description": "Elapsed seconds between initialization_dtg and finalization_dtg."},
+            "observation_start_utc": {"type": ["string"], "required": true, "format": "date-time", "description": "Start of the data window evaluated by the run."},
+            "observation_end_utc": {"type": ["string"], "required": true, "format": "date-time", "description": "End of the data window evaluated by the run."},
+            "run_username": {"type": ["string"], "required": true, "description": "User or service account that executed the analytic."},
+
+            "analytic_id": {"type": ["string"], "required": true, "description": "Stable analytic identifier (typically the technique ID, e.g. T1112)."},
+            "analytic_name": {"type": ["string"], "required": true, "description": "Human-readable analytic name."},
+            "analytic_description": {"type": ["string"], "required": true, "description": "Plain-language description of analytic behavior."},
+            "analytic_version": {"type": ["string", "null"], "required": false, "description": "Analytic version (notebook Change-Control version)."},
+            "analytic_url": {"type": ["string", "null"], "required": false, "description": "URL to analytic source or rendered analytic page."},
+            "analytic_path": {"type": ["string", "null"], "required": false, "description": "Repo-relative path to the analytic notebook (e.g. oks/T1112/T1112.ipynb)."},
+            "analytic_repo_url": {"type": ["string", "null"], "required": false, "description": "Base repository URL (no path)."},
+            "analytic_branch": {"type": ["string", "null"], "required": false, "description": "Git branch used at execution."},
+            "analytic_commit_hash": {"type": ["string", "null"], "required": false, "description": "Git commit used for execution."},
+            "analytic_config_hash": {"type": ["string", "null"], "required": false, "description": "Hash of the analytic configuration (config.yml) in effect."},
+            "analytic_engine": {"type": ["string", "null"], "required": false, "description": "Execution engine (e.g. ionic_scripting_framework)."},
+
+            "input_dataset_names": {"type": ["list", "null"], "required": false, "description": "Union of source dataset / table names the run consumed. ARRAY VARCHAR.", "items": {"type": ["string"]}},
+            "datasource_vendor": {"type": ["string", "null"], "required": false, "description": "Primary data-source vendor (e.g. Microsoft)."},
+            "datasource_product": {"type": ["string", "null"], "required": false, "description": "Primary data-source product (e.g. Sysmon/XDR)."},
+            "log_source_type": {"type": ["string", "null"], "required": false, "description": "Log source category (e.g. endpoint, network, identity, cloud)."},
+            "site_name": {"type": ["string", "null"], "required": false, "description": "Deployment site / enclave the run executed against, if applicable."},
+
+            "execution_environment": {
+                "type": ["object"], "required": true, "description": "Software and hardware context in which the analytic ran.",
+                "fields": {
+                    "python_version": {"type": ["string"], "required": true, "description": "Exact Python interpreter version."},
+                    "library_dependencies": {"type": ["object"], "required": true, "description": "Map of critical libraries to exact versions."},
+                    "operating_system": {"type": ["string"], "required": true, "description": "OS name and version the analytic ran on."},
+                    "username": {"type": ["string"], "required": true, "description": "User account that executed the analytic."},
+                    "hardware_specs": {
+                        "type": ["object"], "required": true, "description": "Key hardware details (CPU, GPU, RAM).",
+                        "fields": {
+                            "cpu": {"type": ["string"], "required": true, "description": "CPU model."},
+                            "gpu": {"type": ["string"], "required": false, "description": "GPU model, if applicable."},
+                            "ram": {"type": ["string"], "required": true, "description": "Total system RAM."}
+                        },
+                        "additionalProperties": false
+                    }
+                },
+                "additionalProperties": false
+            },
+
+            "execution_timeouts": {
+                "type": ["object", "null"], "required": false, "description": "Configured non-blocking wall-clock timeout budgets and any that were exceeded during the run (see Workflow/Externals/timeouts.py). Notice-only: exceeding a budget never aborts the run.",
+                "fields": {
+                    "per_analytic_seconds": {"type": ["integer", "null"], "required": false, "description": "Whole-analytic budget in seconds."},
+                    "per_workflow_seconds": {"type": ["integer", "null"], "required": false, "description": "Per-workflow budget in seconds."},
+                    "per_operation_seconds": {"type": ["integer", "null"], "required": false, "description": "Per-step budget in seconds."},
+                    "exceeded": {"type": ["list", "null"], "required": false, "description": "Scopes whose budget was exceeded (e.g. 'analytic', 'WF-1', 'WF-1 set_input').", "items": {"type": ["string"]}}
+                },
+                "additionalProperties": false
+            },
+
+            "author": {"type": ["string"], "required": true, "description": "Primary author."},
+            "author_organization": {"type": ["string"], "required": true, "description": "Author's organization at the time of execution."},
+            "contact": {"type": ["string"], "required": true, "description": "Email or link for questions and comments."},
+            "license": {"type": ["string"], "required": true, "description": "License under which the code or outputs are released."},
+            "documentation_link": {"type": ["string"], "required": true, "description": "URL to a paper, blog post, or other resource for more information."},
+
+            "status": {"type": ["string"], "required": true, "enum": ["success", "fail", "warning", "UNKNOWN"], "description": "High-level execution outcome."},
+            "exit_code": {"type": ["integer"], "required": true, "description": "Process exit status (0 = success)."},
+            "messages": {
+                "type": ["list"], "required": false, "description": "Ordered log entries generated during execution.",
+                "items": {
+                    "fields": {
+                        "timestamp": {"type": ["string"], "format": "date-time", "required": true},
+                        "level": {"type": ["string"], "enum": ["DEBUG", "INFO", "WARN", "ERROR", "FATAL"], "required": true},
+                        "text": {"type": ["string"], "required": true}
+                    },
+                    "additionalProperties": false
+                }
+            },
+
+            "inputs": {"type": ["object"], "required": true, "description": "Verbatim copy of the input parameter object for auditability."},
+            "input_hash": {"type": ["string"], "required": true, "description": "SHA-256 hash of the canonicalised inputs object."},
+            "analytic_parameters_json": {"type": ["string", "null"], "required": false, "description": "JSON-serialised analytic-specific tuning knobs actually in effect for this run."},
+
+            "result_count": {"type": ["integer", "null"], "required": false, "description": "Total number of analytic_results rows emitted for this run (after run-level dedup)."},
+            "results_hash": {"type": ["string"], "required": true, "description": "SHA-256 (or stronger) hash of the serialised results array this run produced. Lets metadata verify the linked analytic_results set."},
+
+            "additional_run_properties": {"type": ["object"], "required": false, "description": "Arbitrary, user-supplied key-value metadata that applies to the entire run.", "additionalProperties": true}
+        },
+        "additionalProperties": false
+    }
+}
