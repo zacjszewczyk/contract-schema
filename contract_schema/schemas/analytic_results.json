@@ -1,11 +1,11 @@
 {
     "title": "Analytic Results CIM",
-    "description": "Common Information Model for analytic findings in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one primary entity. Run-scoped execution context lives in analytic_metadata; join on run_id = analytic_metadata.run_id.",
+    "description": "Common Information Model for analytic findings in tabular storage. One row represents one analytic finding tied to one MITRE ATT&CK tactic-technique hypothesis for one primary entity. Run-scoped execution context lives in analytic_runs; join on run_id = analytic_runs.run_id.",
     "version": "2.0.0",
     "input": {
         "title": "Analytic Results CIM Input Schema",
         "type": "object",
-        "description": "Identical to the analytic_metadata input contract; included so the results document validates standalone.",
+        "description": "Identical to the analytic_runs input contract; included so the results document validates standalone.",
         "fields": {
             "start_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Inclusive UTC timestamp (ISO 8601) marking the first data element evaluated."},
             "end_dtg": {"type": ["string"], "required": true, "format": "date-time", "description": "Exclusive UTC timestamp (ISO 8601) marking the end of the data window."},
@@ -21,11 +21,11 @@
     "output": {
         "title": "Analytic Results CIM Output Schema",
         "type": "object",
-        "description": "Carrier for the canonical CIM finding rows. Row grain: run_id + result_id (one finding per primary_entity + tactic_id + technique_id within the run's observation window). All run/execution metadata lives in analytic_metadata, joined on run_id.",
+        "description": "Carrier for the canonical CIM finding rows. Row grain: run_id + result_id (one finding per primary_entity + tactic_id + technique_id within the run's observation window). All run/execution metadata lives in analytic_runs, joined on run_id.",
         "fields": {
             "cim_schema_name": {"type": ["string"], "required": true, "enum": ["analytic_results_cim"], "description": "Stable identifier for this CIM."},
             "cim_schema_version": {"type": ["string"], "required": true, "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Semantic version of the CIM row schema."},
-            "run_id": {"type": ["string"], "required": true, "description": "Run that produced these rows. Mirrored onto every row's run_id; JOIN KEY -> analytic_metadata.run_id."},
+            "run_id": {"type": ["string"], "required": true, "description": "Run that produced these rows. Mirrored onto every row's run_id; JOIN KEY -> analytic_runs.run_id."},
             "results": {
                 "type": ["list"],
                 "required": true,
@@ -34,7 +34,7 @@
                     "type": ["object"],
                     "fields": {
                         "result_id": {"type": ["string"], "required": true, "description": "Globally unique ID for this finding. Deterministic hash of run ID, analytic, entity, time window, and technique. PRIMARY KEY."},
-                        "run_id": {"type": ["string"], "required": true, "description": "Run that produced this finding. FOREIGN KEY -> analytic_metadata.run_id. This is the ONLY run-scoped value on a result row; every other run/execution field lives in analytic_metadata."},
+                        "run_id": {"type": ["string"], "required": true, "description": "Run that produced this finding. FOREIGN KEY -> analytic_runs.run_id. This is the ONLY run-scoped value on a result row; every other run/execution field lives in analytic_runs."},
 
                         "mitre_attack_domain": {"type": ["string", "null"], "required": false, "description": "ATT&CK matrix domain (enterprise, mobile, ics)."},
                         "mitre_tactic_id": {"type": ["string"], "required": true, "pattern": "^TA[0-9]{4}$", "description": "ATT&CK tactic ID (e.g., TA0005)."},

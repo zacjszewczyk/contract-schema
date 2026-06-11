@@ -1,9 +1,9 @@
 {
-    "title": "Analytic Metadata CIM",
+    "title": "Analytic Runs CIM",
     "description": "Common Information Model for analytic execution metadata in tabular storage. One row represents one analytic run (run_id) and captures how, when, where, and by whom the analytic executed. Joins 1:N to analytic_results on run_id = analytic_results.run_id. All run/execution context lives here; all per-finding data lives in analytic_results.",
     "version": "2.0.0",
     "input": {
-        "title": "Analytic Metadata CIM Input Schema",
+        "title": "Analytic Runs CIM Input Schema",
         "type": "object",
         "description": "Parameters describing how a CIM-conformant run was produced. Mirrors the standard analytic_schema inputs so any analytic emitting CIM rows can validate its own runtime configuration.",
         "fields": {
@@ -19,11 +19,11 @@
         "additionalProperties": true
     },
     "output": {
-        "title": "Analytic Metadata CIM Output Schema",
+        "title": "Analytic Runs CIM Output Schema",
         "type": "object",
         "description": "One analytic run's execution context, provenance, and audit record. Row grain: one row per run_id.",
         "fields": {
-            "cim_schema_name": {"type": ["string"], "required": true, "enum": ["analytic_metadata_cim"], "description": "Stable identifier for this CIM. Lets downstream consumers dispatch on schema family."},
+            "cim_schema_name": {"type": ["string"], "required": true, "enum": ["analytic_runs_cim"], "description": "Stable identifier for this CIM. Lets downstream consumers dispatch on schema family."},
             "cim_schema_version": {"type": ["string"], "required": true, "pattern": "^\\d+\\.\\d+\\.\\d+$", "description": "Semantic version of this metadata schema."},
             "input_schema_version": {"type": ["string"], "required": true, "description": "Echo of the input contract version used for this run."},
             "output_schema_version": {"type": ["string"], "required": true, "description": "Semantic-version identifier for this output contract."},
