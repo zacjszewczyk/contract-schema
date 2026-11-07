@@ -30,7 +30,22 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 import copy
 
+try:
+    from ruamel.yaml import YAML
+    _has_ruamel = True
+except ImportError:
+    _has_ruamel = False
+
 import yaml
+
+
+def _safe_load_yaml(stream: str | Path | Any) -> Any:
+    """Safe YAML loader using ruamel.yaml with fallback to PyYAML."""
+    if _has_ruamel:
+        parser = YAML(typ="safe", pure=True)
+        parser.version = (1, 1)
+        return parser.load(stream)
+    return yaml.safe_load(stream)
 
 # --------------------------------------------------------------------------- #
 # Parser builder                                                              #
@@ -146,10 +161,10 @@ def parse_input(
             return json.loads(source)
         except json.JSONDecodeError:
             try:
-                yaml_obj = yaml.safe_load(source)
+                yaml_obj = _safe_load_yaml(source)
                 if isinstance(yaml_obj, Mapping):
                     return copy.deepcopy(dict(yaml_obj))
-            except yaml.YAMLError:
+            except Exception:
                 pass
             argv = shlex.split(source)
     elif source is None:
@@ -182,8 +197,8 @@ def _load_structured_text(text: str, *, source: Path) -> dict[str, Any]:
         obj = json.loads(text)
     except json.JSONDecodeError:
         try:
-            obj = yaml.safe_load(text)
-        except yaml.YAMLError as exc:
+            obj = _safe_load_yaml(text)
+        except Exception as exc:
             raise ValueError(f"Invalid JSON or YAML in {source}: {exc}") from exc
 
     if obj is None:
